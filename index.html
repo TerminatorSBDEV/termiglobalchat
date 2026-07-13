@@ -20,7 +20,7 @@
         body, html {
             margin: 0; padding: 0; 
             width: 100vw;
-            height: 100dvh; /* Altura de viewport dinâmica para evitar cortes em celulares */
+            height: 100dvh; 
             background-color: var(--bg); color: var(--text);
             font-family: 'Segoe UI', system-ui, sans-serif;
             display: flex;
@@ -52,8 +52,8 @@
             display: flex;
             flex-direction: column;
             width: 100vw;
-            height: 100dvh; /* Acompanha o teclado virtual no celular */
-            max-width: 800px; /* Mais largo e elegante no computador */
+            height: 100dvh; 
+            max-width: 800px; 
             border-right: 1px solid var(--border);
             border-left: 1px solid var(--border);
             background: var(--panel);
@@ -61,7 +61,6 @@
             box-sizing: border-box;
         }
 
-        /* Ajustes responsivos para telas menores (celulares) */
         @media (max-width: 768px) {
             .chat-layout {
                 max-width: 100vw;
@@ -72,7 +71,7 @@
 
         .chat-header {
             padding: 15px;
-            padding-top: calc(15px + env(safe-area-inset-top)); /* Evita o "notch" de celulares modernos */
+            padding-top: calc(15px + env(safe-area-inset-top)); 
             border-bottom: 1px solid var(--border);
             display: flex;
             justify-content: space-between;
@@ -150,7 +149,7 @@
 
         .input-bar {
             padding: 15px;
-            padding-bottom: calc(15px + env(safe-area-inset-bottom)); /* Impede que o teclado virtual mobile cubra a barra */
+            padding-bottom: calc(15px + env(safe-area-inset-bottom)); 
             border-top: 1px solid var(--border);
             background: #09090b; display: flex; gap: 8px; align-items: center;
         }
@@ -217,8 +216,8 @@
                 <label style="font-size: 0.75rem; color: #888;">YOUR NAME (MAX 20 CHARS)</label>
                 <input type="text" id="profile-name-input" placeholder="Leave blank for your ID" maxlength="20">
             </div>
-            <button class="btn btn-blue" onclick="updateProfileSubmit()">[UPDATE PROFILE]</button>
-            <button class="btn btn-secondary" onclick="closeProfileModal()">Cancel</button>
+            <button class="btn btn-blue" type="button" onclick="updateProfileSubmit()">[UPDATE PROFILE]</button>
+            <button class="btn btn-secondary" type="button" onclick="closeProfileModal()">Cancel</button>
         </div>
     </div>
 
@@ -232,7 +231,7 @@
                 </div>
                 <div style="font-size:0.75rem; color:#888;">people on this site: <span id="site-users-count" style="color:var(--blue); font-weight:bold;">0</span></div>
             </div>
-            <button class="btn" style="padding:6px 12px; font-size:0.75rem; width:auto;" onclick="openProfileModal()">Change Profile</button>
+            <button class="btn" style="padding:6px 12px; font-size:0.75rem; width:auto;" type="button" onclick="openProfileModal()">Change Profile</button>
         </div>
 
         <div id="chat-messages" class="chat-messages">
@@ -242,24 +241,24 @@
         <div id="typing-indicator"></div>
 
         <div class="input-bar">
-            <button class="icon-btn" onclick="triggerVideoUpload()">🎥</button>
+            <button class="icon-btn" type="button" onclick="triggerVideoUpload()">🎥</button>
             <input type="file" id="video-input" accept="video/*,image/gif" style="display:none;" onchange="handleMediaSelect(this, 'video')">
 
-            <button class="icon-btn" onclick="triggerImageUpload()">📷</button>
+            <button class="icon-btn" type="button" onclick="triggerImageUpload()">📷</button>
             <input type="file" id="image-input" accept="image/*" style="display:none;" onchange="handleImageSend(this)">
             
-            <button class="icon-btn" onclick="triggerAudioUpload()">🎶</button>
+            <button class="icon-btn" type="button" onclick="triggerAudioUpload()">🎶</button>
             <input type="file" id="audio-input" accept="audio/*" style="display:none;" onchange="handleMediaSelect(this, 'audio')">
 
             <input type="text" id="chat-input" placeholder="Type a message or command..." autocomplete="off" oninput="handleTyping()">
-            <button class="btn" onclick="sendMsg()">Send</button>
+            <button class="btn" type="button" onclick="sendMsg()">Send</button>
         </div>
     </div>
 
 <script>
-    // --- CREDENCIAIS ATUALIZADAS ---
-    const TUNNEL = "https://responsibility-mike-borders-phones.trycloudflare.com";
-    const VIRTUAL_SERVER_KEY = "d5b39a94cf";
+    // --- CREDENCIAIS ---
+    const TUNNEL = "https://result-license-alphabetical-even.trycloudflare.com";
+    const VIRTUAL_SERVER_KEY = "400e0a8efd";
     const OWNER_ID = "g_111870109309370";
 
     let myId = getCookie("eb_owner_id") || "";
@@ -277,12 +276,15 @@
     let typingTimeout = null;
     const activeTypers = new Set();
 
-    // Configurações do Chunked Upload (Vídeo/Áudio)
-    const CHUNK_SIZE = 150 * 1024; 
+    // Configurações do Chunked Upload (Vídeo/Áudio/Histórico)
+    const CHUNK_SIZE = 100 * 1024; // 100KB Chunks para respeitar limites de rede
     const pendingFileChunks = {}; 
     const activeUploads = {}; 
 
-    // --- COORDENADORES DO SISTEMA P2P LATENCY SYNC ---
+    // Buffers para reconstrução de histórico P2P fragmentado (chunks de 100KB)
+    const pendingHistoryChunks = {};
+
+    // Coordenadores do P2P Latency Sync
     let potentialSyncHosts = [];
     let pingCheckTimeout = null;
 
@@ -311,8 +313,9 @@
         isConnected = true;
         
         const subtext = document.getElementById('sync-subtext');
-        subtext.innerText = "Querying fastest active peer for chat history...";
+        subtext.innerText = "Querying fastest active peer for safe history sync...";
 
+        // Dispara o handshake de medição de latência (Ping)
         potentialSyncHosts = [];
         socket.emit('RemoteEvent', {
             type: 'sync_ping_request',
@@ -321,15 +324,15 @@
             room: VIRTUAL_SERVER_KEY
         });
 
+        // Janela de coleta de pings para eleger o sincronizador mais rápido
         pingCheckTimeout = setTimeout(() => {
-            document.getElementById('overlay-sync').style.display = 'none';
-            
             if (potentialSyncHosts.length > 0) {
                 potentialSyncHosts.sort((a, b) => a.latency - b.latency);
                 const bestHost = potentialSyncHosts[0].id;
                 
-                addSystemMessage(`Sincronizando histórico com o peer mais rápido (ID: ${bestHost.substring(0, 5)} - ${potentialSyncHosts[0].latency}ms)...`);
+                subtext.innerText = `Downloading safe history from: ${bestHost.substring(0, 5)}...`;
                 
+                // Solicita o histórico de forma direta para ele
                 socket.emit('RemoteEvent', {
                     type: 'history_request_direct',
                     targetId: bestHost,
@@ -337,9 +340,18 @@
                     room: VIRTUAL_SERVER_KEY
                 });
             } else {
-                addSystemMessage("Nenhum peer ativo encontrado para sincronizar histórico. Iniciando chat limpo.");
+                // Se não houver ninguém ativo, remove o bloqueio e inicia vazio
+                document.getElementById('overlay-sync').style.display = 'none';
+                addSystemMessage("Nenhum peer ativo encontrado. Iniciando histórico limpo.");
             }
-        }, 600); 
+        }, 800); 
+
+        // Registra o ID do jogador no ServerScript de forma segura
+        socket.emit('RemoteEvent', {
+            type: 'join_player',
+            userId: myId,
+            profile: myProfile
+        });
 
         // Loop de monitoramento de usuários online no site (a cada 5s)
         setInterval(() => {
@@ -367,6 +379,7 @@
     socket.on('RemoteEvent', (packet) => {
         if (!isConnected) return;
 
+        // Tratar o pulso de teste de latência (Ping) de novos conexões
         if (packet.type === 'sync_ping_request') {
             if (chatHistory.length > 0) {
                 socket.emit('RemoteEvent', {
@@ -379,39 +392,81 @@
             }
         }
 
+        // Receber a resposta de ping e medir latência
         if (packet.type === 'sync_ping_response' && packet.targetId === myId) {
             const latency = Date.now() - packet.timestamp;
             potentialSyncHosts.push({ id: packet.senderId, latency: latency });
         }
 
+        // Se eu fui eleito o mais rápido, divido meu histórico em fatias de 100KB e envio (Evita choke)
         if (packet.type === 'history_request_direct' && packet.targetId === myId) {
-            socket.emit('RemoteEvent', {
-                type: 'history_payload_direct',
-                targetId: packet.senderId,
-                history: chatHistory,
-                banList: banList,
-                room: VIRTUAL_SERVER_KEY
-            });
+            const historyStr = JSON.stringify(chatHistory);
+            const totalChunks = Math.ceil(historyStr.length / CHUNK_SIZE);
+            const syncId = "sync_" + Date.now();
+
+            let index = 0;
+            const sendNextHistoryChunk = () => {
+                if (index < totalChunks) {
+                    const start = index * CHUNK_SIZE;
+                    const end = Math.min(start + CHUNK_SIZE, historyStr.length);
+                    const chunk = historyStr.slice(start, end);
+
+                    socket.emit('RemoteEvent', {
+                        type: 'history_chunk',
+                        targetId: packet.senderId,
+                        index: index,
+                        total: totalChunks,
+                        chunk: chunk,
+                        syncId: syncId,
+                        room: VIRTUAL_SERVER_KEY
+                    });
+                    index++;
+                    setTimeout(sendNextHistoryChunk, 75); // Delay seguro de 75ms
+                }
+            };
+            sendNextHistoryChunk();
         }
 
-        if (packet.type === 'history_payload_direct' && packet.targetId === myId) {
-            chatHistory = packet.history || [];
-            banList = packet.banList || [];
-            checkMyBanStatus();
-            renderChatHistory();
-            addSystemMessage("Sincronização concluída com sucesso!");
+        // Receptor de Chunks de Histórico do peer mais rápido
+        if (packet.type === 'history_chunk' && packet.targetId === myId) {
+            const { index, total, chunk, syncId } = packet;
+            if (!pendingHistoryChunks[syncId]) {
+                pendingHistoryChunks[syncId] = Array(total).fill(null);
+            }
+            pendingHistoryChunks[syncId][index] = chunk;
+
+            const received = pendingHistoryChunks[syncId].filter(c => c !== null).length;
+            const pct = Math.floor((received / total) * 100);
+            document.getElementById('sync-subtext').innerText = `Downloading history: ${pct}%`;
+
+            if (received === total) {
+                const fullStr = pendingHistoryChunks[syncId].join('');
+                delete pendingHistoryChunks[syncId];
+                try {
+                    chatHistory = JSON.parse(fullStr);
+                    renderChatHistory();
+                    document.getElementById('overlay-sync').style.display = 'none';
+                    addSystemMessage("Histórico sincronizado via P2P com sucesso.");
+                } catch(e) {
+                    addSystemMessage("Falha ao reconstruir histórico.");
+                    document.getElementById('overlay-sync').style.display = 'none';
+                }
+            }
         }
 
+        // Nova Mensagem (Vinda do roteador seguro ServerScript)
         if (packet.type === 'chat_msg') {
             chatHistory.push({ userId: packet.userId, text: packet.text, image: packet.image, profile: packet.profile });
             limitHistoryAndDOM();
             appendMessage(packet.userId, packet.text, packet.userId === myId, packet.image, null, null, packet.profile);
         }
 
+        // Receber Pedaços de Arquivos Grandes (Vídeo/Áudio) e Reconstruir
         if (packet.type === 'chat_media_chunk') {
             handleIncomingMediaChunk(packet);
         }
 
+        // Atualização de Digitador
         if (packet.type === 'typing_status') {
             if (packet.isTyping) {
                 activeTypers.add(packet.userId);
@@ -436,6 +491,7 @@
         }
     });
 
+    // Limita as mensagens na fila lógica e limpa o DOM para manter o limite estrito de 50 mensagens
     function limitHistoryAndDOM() {
         if (chatHistory.length > 50) chatHistory.shift();
         
@@ -493,7 +549,14 @@
         myProfile.name = document.getElementById('profile-name-input').value.trim().substring(0, 20);
         localStorage.setItem('eb_user_profile', JSON.stringify(myProfile));
         closeProfileModal();
-        addSystemMessage("Seu perfil foi atualizado com sucesso localmente.");
+        addSystemMessage("Seu perfil foi atualizado.");
+        
+        // Sincroniza a atualização com o ServerScript
+        socket.emit('RemoteEvent', {
+            type: 'join_player',
+            userId: myId,
+            profile: myProfile
+        });
     }
 
     // --- PROCESSAMENTO E ENVIO EM CHUNKS (ÁUDIO / VÍDEO) ---
@@ -606,7 +669,7 @@
         const file = input.files[0];
 
         if (file.size > 2 * 1024 * 1024) {
-            alert("Images sent via camera button must be under 2MB! Use video/gif button for larger ones.");
+            alert("Images sent via camera button must be under 2MB!");
             input.value = "";
             return;
         }
@@ -688,26 +751,16 @@
             if (!resolvedId) return alert("Nenhum usuário correspondente.");
             if (resolvedId === OWNER_ID) return alert("Você não pode se banir!");
 
-            if (!banList.includes(resolvedId)) {
-                banList.push(resolvedId);
-                socket.emit('RemoteEvent', { type: 'ban_broadcast', targetId: resolvedId });
-                socket.emit('RemoteEvent', { type: 'ebdata_add_bans', data: banList });
-                addSystemMessage(`Jogador ${resolvedId} foi banido.`);
-            }
+            socket.emit('RemoteEvent', { type: 'ban_user', targetId: resolvedId });
         }
         else if (cmd === '/unban' && arg) {
             const resolvedId = resolvePartialUserIdFromBans(arg);
             if (resolvedId) {
-                banList = banList.filter(id => id !== resolvedId);
-                socket.emit('RemoteEvent', { type: 'unban_broadcast', targetId: resolvedId });
-                socket.emit('RemoteEvent', { type: 'ebdata_add_bans', data: banList });
-                addSystemMessage(`Jogador ${resolvedId} foi desbanido.`);
+                socket.emit('RemoteEvent', { type: 'unban_user', targetId: resolvedId });
             }
         }
         else if (cmd === "/clear") {
-            chatHistory = [];
-            document.getElementById('chat-messages').innerHTML = `<div class="system-msg">[System] O histórico foi limpo pelo moderador.</div>`;
-            socket.emit('RemoteEvent', { type: 'clear_broadcast' });
+            socket.emit('RemoteEvent', { type: 'clear_chat' });
         }
     }
 
@@ -782,7 +835,6 @@
         }
     }
 
-    // Carrega o histórico dinâmico de 50 mensagens re-sincronizado
     function renderChatHistory() {
         const container = document.getElementById('chat-messages');
         container.innerHTML = "";
