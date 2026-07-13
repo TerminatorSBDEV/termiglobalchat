@@ -277,7 +277,7 @@
     const activeTypers = new Set();
 
     // Configurações do Chunked Upload (Vídeo/Áudio/Histórico)
-    const CHUNK_SIZE = 100 * 1024; // 100KB Chunks para respeitar limites de rede
+    const CHUNK_SIZE = 100 * 1024; 
     const pendingFileChunks = {}; 
     const activeUploads = {}; 
 
@@ -313,9 +313,8 @@
         isConnected = true;
         
         const subtext = document.getElementById('sync-subtext');
-        subtext.innerText = "Querying fastest active peer for safe history sync...";
+        subtext.innerText = "Querying fastest active peer for chat history...";
 
-        // Dispara o handshake de medição de latência (Ping)
         potentialSyncHosts = [];
         socket.emit('RemoteEvent', {
             type: 'sync_ping_request',
@@ -324,15 +323,15 @@
             room: VIRTUAL_SERVER_KEY
         });
 
-        // Janela de coleta de pings para eleger o sincronizador mais rápido
         pingCheckTimeout = setTimeout(() => {
+            document.getElementById('overlay-sync').style.display = 'none';
+            
             if (potentialSyncHosts.length > 0) {
                 potentialSyncHosts.sort((a, b) => a.latency - b.latency);
                 const bestHost = potentialSyncHosts[0].id;
                 
-                subtext.innerText = `Downloading safe history from: ${bestHost.substring(0, 5)}...`;
+                subtext.innerText = `Downloading history: ${bestHost.substring(0, 5)}...`;
                 
-                // Solicita o histórico de forma direta para ele
                 socket.emit('RemoteEvent', {
                     type: 'history_request_direct',
                     targetId: bestHost,
@@ -340,17 +339,18 @@
                     room: VIRTUAL_SERVER_KEY
                 });
             } else {
-                // Se não houver ninguém ativo, remove o bloqueio e inicia vazio
                 document.getElementById('overlay-sync').style.display = 'none';
                 addSystemMessage("Nenhum peer ativo encontrado. Iniciando histórico limpo.");
             }
-        }, 800); 
+        }, 600); 
 
         // Registra o ID do jogador no ServerScript de forma segura
         socket.emit('RemoteEvent', {
             type: 'join_player',
-            userId: myId,
-            profile: myProfile
+            data: {
+                userId: myId,
+                profile: myProfile
+            }
         });
 
         // Loop de monitoramento de usuários online no site (a cada 5s)
@@ -379,7 +379,19 @@
     socket.on('RemoteEvent', (packet) => {
         if (!isConnected) return;
 
-        // Tratar o pulso de teste de latência (Ping) de novos conexões
+        // Trata as respostas do banco físico (Apenas se o ServerScript mandar)
+        if (packet.type === 'storage_response') {
+            const res = packet.result;
+            if (res && res.success === undefined) {
+                if (res.data) {
+                    if (packet.cmd_type === 'ebdata_fetch_bans') {
+                        banList = res.data;
+                        checkMyBanStatus();
+                    }
+                }
+            }
+        }
+
         if (packet.type === 'sync_ping_request') {
             if (chatHistory.length > 0) {
                 socket.emit('RemoteEvent', {
@@ -392,13 +404,11 @@
             }
         }
 
-        // Receber a resposta de ping e medir latência
         if (packet.type === 'sync_ping_response' && packet.targetId === myId) {
             const latency = Date.now() - packet.timestamp;
             potentialSyncHosts.push({ id: packet.senderId, latency: latency });
         }
 
-        // Se eu fui eleito o mais rápido, divido meu histórico em fatias de 100KB e envio (Evita choke)
         if (packet.type === 'history_request_direct' && packet.targetId === myId) {
             const historyStr = JSON.stringify(chatHistory);
             const totalChunks = Math.ceil(historyStr.length / CHUNK_SIZE);
@@ -421,17 +431,17 @@
                         room: VIRTUAL_SERVER_KEY
                     });
                     index++;
-                    setTimeout(sendNextHistoryChunk, 75); // Delay seguro de 75ms
+                    setTimeout(sendNextHistoryChunk, 75); 
                 }
             };
             sendNextHistoryChunk();
         }
 
-        // Receptor de Chunks de Histórico do peer mais rápido
         if (packet.type === 'history_chunk' && packet.targetId === myId) {
             const { index, total, chunk, syncId } = packet;
             if (!pendingHistoryChunks[syncId]) {
                 pendingHistoryChunks[syncId] = Array(total).fill(null);
+                document.getElementById('sync-subtext').innerText = `Downloading history: 0%`;
             }
             pendingHistoryChunks[syncId][index] = chunk;
 
@@ -446,7 +456,7 @@
                     chatHistory = JSON.parse(fullStr);
                     renderChatHistory();
                     document.getElementById('overlay-sync').style.display = 'none';
-                    addSystemMessage("Histórico sincronizado via P2P com sucesso.");
+                    addSystemMessage("Histórico sincronizado com sucesso.");
                 } catch(e) {
                     addSystemMessage("Falha ao reconstruir histórico.");
                     document.getElementById('overlay-sync').style.display = 'none';
@@ -454,47 +464,47 @@
             }
         }
 
-        // Nova Mensagem (Vinda do roteador seguro ServerScript)
+        // CORREÇÃO: Lê de forma estrita de dentro de packet.data conforme protocolo do ServerScript
         if (packet.type === 'chat_msg') {
-            chatHistory.push({ userId: packet.userId, text: packet.text, image: packet.image, profile: packet.profile });
+            const d = packet.data;
+            chatHistory.push({ userId: d.userId, text: d.text, image: d.image, profile: d.profile });
             limitHistoryAndDOM();
-            appendMessage(packet.userId, packet.text, packet.userId === myId, packet.image, null, null, packet.profile);
+            appendMessage(d.userId, d.text, d.userId === myId, d.image, null, null, d.profile);
         }
 
-        // Receber Pedaços de Arquivos Grandes (Vídeo/Áudio) e Reconstruir
         if (packet.type === 'chat_media_chunk') {
-            handleIncomingMediaChunk(packet);
+            handleIncomingMediaChunk(packet.data);
         }
 
-        // Atualização de Digitador
         if (packet.type === 'typing_status') {
-            if (packet.isTyping) {
-                activeTypers.add(packet.userId);
+            const d = packet.data;
+            if (d.isTyping) {
+                activeTypers.add(d.userId);
             } else {
-                activeTypers.delete(packet.userId);
+                activeTypers.delete(d.userId);
             }
             updateTypingDisplay();
         }
 
         if (packet.type === 'ban_broadcast') {
-            if (!banList.includes(packet.targetId)) banList.push(packet.targetId);
+            const d = packet.data;
+            if (!banList.includes(d.targetId)) banList.push(d.targetId);
             checkMyBanStatus();
         }
 
         if (packet.type === 'unban_broadcast') {
-            banList = banList.filter(id => id !== packet.targetId);
+            const d = packet.data;
+            banList = banList.filter(id => id !== d.targetId);
         }
 
         if (packet.type === 'clear_broadcast') {
             chatHistory = [];
-            document.getElementById('chat-messages').innerHTML = `<div class="system-msg">[System] O histórico do chat foi limpo pelo moderador.</div>`;
+            document.getElementById('chat-messages').innerHTML = `<div class="system-msg">[System] O histórico foi limpo pelo moderador.</div>`;
         }
     });
 
-    // Limita as mensagens na fila lógica e limpa o DOM para manter o limite estrito de 50 mensagens
     function limitHistoryAndDOM() {
         if (chatHistory.length > 50) chatHistory.shift();
-        
         const container = document.getElementById('chat-messages');
         while (container.children.length > 50) {
             container.removeChild(container.firstChild);
@@ -505,20 +515,25 @@
     function handleTyping() {
         if (!isTyping) {
             isTyping = true;
-            socket.emit('RemoteEvent', { type: 'typing_status', userId: myId, isTyping: true });
+            socket.emit('RemoteEvent', {
+                type: 'typing_status',
+                data: { userId: myId, isTyping: true }
+            });
         }
         
         clearTimeout(typingTimeout);
         typingTimeout = setTimeout(() => {
             isTyping = false;
-            socket.emit('RemoteEvent', { type: 'typing_status', userId: myId, isTyping: false });
+            socket.emit('RemoteEvent', {
+                type: 'typing_status',
+                data: { userId: myId, isTyping: false }
+            });
         }, 3000);
     }
 
     function updateTypingDisplay() {
         const indicator = document.getElementById('typing-indicator');
         const typersArray = Array.from(activeTypers).filter(id => id !== myId);
-        
         if (typersArray.length > 0) {
             indicator.innerText = typersArray.map(id => `ID: ${id.substring(0, 10)} is typing...`).join(', ');
         } else {
@@ -551,11 +566,9 @@
         closeProfileModal();
         addSystemMessage("Seu perfil foi atualizado.");
         
-        // Sincroniza a atualização com o ServerScript
         socket.emit('RemoteEvent', {
             type: 'join_player',
-            userId: myId,
-            profile: myProfile
+            data: { userId: myId, profile: myProfile }
         });
     }
 
@@ -600,14 +613,15 @@
 
                 socket.emit('RemoteEvent', {
                     type: 'chat_media_chunk',
-                    room: VIRTUAL_SERVER_KEY,
-                    fileId: fileId,
-                    index: index,
-                    total: total,
-                    data: chunk,
-                    mediaType: type,
-                    userId: myId,
-                    profile: myProfile
+                    data: {
+                        fileId: fileId,
+                        index: index,
+                        total: total,
+                        data: chunk,
+                        mediaType: type,
+                        userId: myId,
+                        profile: myProfile
+                    }
                 });
 
                 const pct = Math.floor((index / total) * 100);
@@ -634,15 +648,14 @@
                 
                 chatHistory.push({ userId: myId, text: "", image: null, mediaBase64: fullBase64, mediaType: type, profile: myProfile });
                 limitHistoryAndDOM();
-
                 delete activeUploads[fileId];
             }
         }
         next();
     }
 
-    function handleIncomingMediaChunk(packet) {
-        const { fileId, index, total, data, mediaType, userId, profile } = packet;
+    function handleIncomingMediaChunk(packetData) {
+        const { fileId, index, total, data, mediaType, userId, profile } = packetData;
 
         if (!pendingFileChunks[fileId]) {
             pendingFileChunks[fileId] = Array(total).fill(null);
@@ -683,10 +696,12 @@
 
             socket.emit('RemoteEvent', {
                 type: 'chat_msg',
-                userId: myId,
-                text: "",
-                image: base64Img,
-                profile: myProfile
+                data: {
+                    userId: myId,
+                    text: "",
+                    image: base64Img,
+                    profile: myProfile
+                }
             }, () => {
                 tempBubble.classList.remove('pending');
                 tempBubble.classList.add('sent');
@@ -708,7 +723,10 @@
 
         isTyping = false;
         clearTimeout(typingTimeout);
-        socket.emit('RemoteEvent', { type: 'typing_status', userId: myId, isTyping: false });
+        socket.emit('RemoteEvent', { 
+            type: 'typing_status', 
+            data: { userId: myId, isTyping: false } 
+        });
 
         if (myId === OWNER_ID && text.startsWith('/')) {
             handleOwnerCommand(text);
@@ -726,9 +744,11 @@
 
         socket.emit('RemoteEvent', {
             type: 'chat_msg',
-            userId: myId,
-            text: text,
-            profile: myProfile
+            data: {
+                userId: myId,
+                text: text,
+                profile: myProfile
+            }
         }, () => {
             tempBubble.classList.remove('pending');
             tempBubble.classList.add('sent');
@@ -751,12 +771,18 @@
             if (!resolvedId) return alert("Nenhum usuário correspondente.");
             if (resolvedId === OWNER_ID) return alert("Você não pode se banir!");
 
-            socket.emit('RemoteEvent', { type: 'ban_user', targetId: resolvedId });
+            socket.emit('RemoteEvent', { 
+                type: 'ban_user', 
+                data: { targetId: resolvedId } 
+            });
         }
         else if (cmd === '/unban' && arg) {
             const resolvedId = resolvePartialUserIdFromBans(arg);
             if (resolvedId) {
-                socket.emit('RemoteEvent', { type: 'unban_user', targetId: resolvedId });
+                socket.emit('RemoteEvent', { 
+                    type: 'unban_user', 
+                    data: { targetId: resolvedId } 
+                });
             }
         }
         else if (cmd === "/clear") {
