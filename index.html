@@ -2,512 +2,1007 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UNO! Animated Multiplayer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>UNO! Ultimate Multiplayer</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif; user-select: none; }
-        body { background: radial-gradient(circle, #1a1a3a 0%, #080811 100%); color: #fff; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        
-        /* Modals & Overlays */
-        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); display: flex; justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.3s ease; }
-        .card-panel { background: linear-gradient(135deg, #1f293d, #111827); border: 3px solid #ef4444; border-radius: 20px; padding: 30px; width: 90%; max-width: 450px; box-shadow: 0 0 30px rgba(239, 68, 68, 0.4); text-align: center; transform: scale(1); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        
-        h1, h2, h3 { text-shadow: 2px 2px 4px rgba(0,0,0,0.6); letter-spacing: 1px; }
-        h1 { font-size: 2.5rem; color: #facc15; margin-bottom: 15px; }
-        p { color: #cbd5e1; margin-bottom: 20px; font-size: 0.95rem; line-height: 1.4; }
-        
-        input[type="text"], select { width: 100%; padding: 12px 15px; background: #0f172a; border: 2px solid #334155; border-radius: 10px; color: #fff; font-size: 1rem; margin-bottom: 15px; outline: none; transition: border-color 0.2s; }
-        input[type="text"]:focus { border-color: #facc15; }
-        
-        .btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: bold; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
-        .btn-red { background: linear-gradient(to bottom, #ef4444, #dc2626); color: #fff; box-shadow: 0 4px 0 #991b1b; }
-        .btn-yellow { background: linear-gradient(to bottom, #facc15, #eab308); color: #000; box-shadow: 0 4px 0 #ca8a04; }
-        .btn-blue { background: linear-gradient(to bottom, #3b82f6, #2563eb); color: #fff; box-shadow: 0 4px 0 #1d4ed8; }
-        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
-        .btn:active { transform: translateY(2px); box-shadow: none; }
-        
-        /* Toast Notifications */
-        #notification-host { position: fixed; top: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-        .toast { background: #ef4444; color: #fff; padding: 12px 20px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); font-weight: bold; animation: slideDown 0.3s forwards; }
-        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        :root {
+            --red: #ff3b30;
+            --blue: #007aff;
+            --green: #34c759;
+            --yellow: #ffcc00;
+            --dark: #0f172a;
+        }
 
-        /* Game Board Layout */
-        #game-view { display: none; width: 100vw; height: 100vh; position: relative; overflow: hidden; }
-        .center-table { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 30px; align-items: center; z-index: 10; }
-        
-        /* Cards UI */
-        .card { width: 90px; height: 135px; border-radius: 10px; background: #fff; border: 3px solid #fff; position: relative; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: transform 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .card-inner { width: 88%; height: 90%; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2rem; font-weight: bold; position: relative; overflow: hidden; }
-        .card-back { background: radial-gradient(circle, #ef4444 0%, #7f1d1d 100%); border: 2px solid #fff; }
-        .card-back::after { content: 'UNO'; color: #facc15; font-style: italic; font-size: 1.2rem; transform: rotate(-25deg); text-shadow: 2px 2px #000; }
-        
-        /* Card Colors */
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* UI Panes */
+        .screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: scale(0.95);
+            z-index: 1;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1);
+            z-index: 10;
+        }
+
+        .panel {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(16px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 32px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: center;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 900;
+            font-style: italic;
+            background: linear-gradient(45deg, #ff3b30, #ffcc00, #34c759, #007aff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+
+        p { color: #94a3b8; margin-bottom: 24px; line-height: 1.5; }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 14px 20px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 2px solid #334155;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1rem;
+            margin-bottom: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: #38bdf8;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 12px;
+        }
+
+        .btn:active { transform: scale(0.97); }
+        .btn-secondary { background: #334155; box-shadow: none; }
+        .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); }
+
+        /* Server List */
+        .server-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+        }
+
+        .server-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: rgba(15, 23, 42, 0.4);
+            border-bottom: 1px solid #334155;
+        }
+
+        .server-item:last-child { border-bottom: none; }
+
+        /* Notification Toast */
+        #notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: bold;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4);
+            z-index: 1000;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+            max-width: 90%;
+        }
+
+        #notification.show { transform: translateX(-50%) translateY(0); }
+
+        /* Game Arena Layout */
+        #game-arena {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        .center-table {
+            position: absolute;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .deck-stack, .discard-stack {
+            width: 100px;
+            height: 140px;
+            border-radius: 12px;
+            position: relative;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .deck-stack {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 2px dashed #475569;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        /* UNO Card Component */
+        .card {
+            width: 90px;
+            height: 130px;
+            border-radius: 10px;
+            background: #fff;
+            position: absolute;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            transition: transform 0.3s ease, filter 0.3s ease, box-shadow 0.3s ease;
+            border: 4px solid #fff;
+        }
+
+        .card.darkened { filter: brightness(0.5); }
+        .card.playable { box-shadow: 0 0 15px 4px rgba(250, 204, 21, 0.8); }
+
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 6px;
+            font-weight: 900;
+            font-size: 1.4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-back {
+            background: radial-gradient(circle, #ef4444 0%, #991b1b 100%);
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #facc15;
+            font-style: italic;
+            font-size: 1.2rem;
+            font-weight: 900;
+            transform: rotate(-25deg);
+            text-shadow: 2px 2px 0 #000;
+            border: 2px solid #facc15;
+        }
+
+        .card-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            width: 80%;
+            height: 50%;
+            background: #ef4444;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 1.8rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        /* Color classes */
         .card-red { background: #ef4444; color: #fff; }
         .card-blue { background: #3b82f6; color: #fff; }
         .card-green { background: #22c55e; color: #fff; }
-        .card-yellow { background: #facc15; color: #000; }
-        .card-wild { background: linear-gradient(135deg, #ef4444, #3b82f6, #22c55e, #facc15); color: #fff; text-shadow: 1px 1px 3px #000; }
-        
-        /* Hand Display */
-        .hand-container { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; justify-content: center; width: 80%; height: 160px; pointer-events: none; }
-        .hand-container .card { pointer-events: auto; margin-left: -35px; transform-origin: bottom center; }
-        .hand-container .card:first-child { margin-left: 0; }
-        
-        /* Mobile-Ready Hover Effects */
-        .hand-container:hover .card { filter: brightness(0.8); }
-        .hand-container .card:hover { transform: translateY(-30px) scale(1.15) !important; filter: brightness(1) !important; z-index: 100; }
-        .card.playable { box-shadow: 0 0 15px 4px rgba(250, 204, 21, 0.7); }
+        .card-yellow { background: #eab308; color: #fff; }
+        .card-wild { background: linear-gradient(45deg, #ef4444, #3b82f6, #22c55e, #eab308); color: #fff; }
 
-        /* Turn / Status Indicators */
-        .turn-banner { position: absolute; top: -50px; left: 50%; transform: translateX(-50%); background: #facc15; color: #000; padding: 6px 20px; border-radius: 20px; font-weight: bold; animation: bounce 1s infinite alternate; display: none; }
-        @keyframes bounce { from { transform: translateX(-50%) translateY(0); } to { transform: translateX(-50%) translateY(-8px); } }
+        /* Hands */
+        .player-hand {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            justify-content: center;
+            width: 80%;
+            height: 150px;
+        }
 
-        /* Floating +N Indicators */
-        .floating-pop { position: absolute; font-size: 2.5rem; color: #ef4444; font-weight: 900; text-shadow: 0 0 10px #000; animation: floatUp 1.2s forwards; pointer-events: none; z-index: 500; }
-        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(0.5); } 50% { transform: translateY(-40px) scale(1.3); } 100% { opacity: 0; transform: translateY(-80px) scale(1); } }
+        .opponents-container {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 0 50px;
+        }
 
-        /* Opponents Area */
-        .opponents-bar { position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around; padding: 0 50px; }
-        .opponent-box { background: rgba(15, 23, 42, 0.8); padding: 10px 20px; border-radius: 12px; border: 2px solid #334155; text-align: center; position: relative; }
-        .opponent-box.active-turn { border-color: #facc15; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); }
+        .opponent {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid #334155;
+            position: relative;
+        }
+
+        .opponent.active-turn {
+            border-color: #facc15;
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.4);
+        }
+
+        /* Action Prompts */
+        #turn-indicator {
+            position: absolute;
+            bottom: 180px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #facc15;
+            color: #0f172a;
+            padding: 8px 24px;
+            border-radius: 20px;
+            font-weight: 900;
+            text-transform: uppercase;
+            animation: bounce 1s infinite alternate;
+            display: none;
+            box-shadow: 0 5px 15px rgba(250, 204, 21, 0.4);
+        }
+
+        #uno-btn {
+            position: absolute;
+            bottom: 180px;
+            right: 10%;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: #facc15;
+            font-weight: 900;
+            font-style: italic;
+            font-size: 1.5rem;
+            border: 4px solid #facc15;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+            display: none;
+            animation: pulse 0.8s infinite alternate;
+        }
+
+        #skip-draw-btn {
+            position: absolute;
+            bottom: 180px;
+            left: 20%;
+            display: none;
+        }
 
         /* Chat System UI */
-        #chat-widget { position: absolute; bottom: 20px; right: 20px; z-index: 300; }
-        #chat-btn { width: 60px; height: 60px; border-radius: 50%; background: #3b82f6; border: none; color: #fff; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); position: relative; }
-        #unread-dot { position: absolute; top: 0; right: 0; width: 16px; height: 16px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; display: none; }
-        #chat-box { display: none; position: absolute; bottom: 70px; right: 0; width: 300px; height: 380px; background: #0f172a; border: 2px solid #334155; border-radius: 15px; flex-direction: column; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.6); }
-        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; }
-        .msg { background: #1e293b; padding: 8px 12px; border-radius: 8px; word-break: break-word; }
-        .msg .author { color: #facc15; font-weight: bold; margin-bottom: 2px; }
-        #typing-indicator { font-size: 0.75rem; color: #94a3b8; padding: 4px 10px; font-style: italic; min-height: 20px; }
-        .chat-input-row { display: flex; padding: 8px; background: #1e293b; gap: 5px; }
-        .chat-input-row input { margin-bottom: 0; font-size: 0.85rem; padding: 8px; }
-        .chat-input-row button { width: auto; padding: 8px 15px; margin-bottom: 0; font-size: 0.85rem; }
+        #chat-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
 
-        /* Action Controls */
-        .controls-layer { position: absolute; bottom: 190px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; z-index: 200; }
-        #uno-btn { display: none; animation: pulse 0.8s infinite alternate; }
-        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+        #chat-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 14px;
+            height: 14px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid #0f172a;
+            display: none;
+        }
+
+        #chat-window {
+            position: absolute;
+            bottom: 80px;
+            left: 20px;
+            width: 300px;
+            height: 380px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: translateY(20px);
+            z-index: 100;
+        }
+
+        #chat-window.open {
+            opacity: 1;
+            pointer-events: all;
+            transform: translateY(0);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .chat-msg {
+            background: rgba(51, 65, 85, 0.5);
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            word-break: break-word;
+        }
+
+        .chat-msg .sender { font-weight: bold; color: #38bdf8; margin-bottom: 2px; }
+        .chat-msg.system { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234, 179, 8, 0.3); }
+
+        #typing-indicator {
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-style: italic;
+            height: 20px;
+        }
+
+        .chat-input-area {
+            display: flex;
+            padding: 8px;
+            gap: 6px;
+            background: rgba(30, 41, 59, 0.8);
+        }
+
+        .chat-input-area input {
+            margin: 0;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+        }
+
+        .chat-input-area button {
+            width: auto;
+            margin: 0;
+            padding: 8px 16px;
+        }
+
+        /* Animations */
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @keyframes bounce { 0% { transform: translateX(-50%) translateY(0); } 100% { transform: translateX(-50%) translateY(-10px); } }
+        @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+
+        .float-text {
+            position: absolute;
+            font-weight: 900;
+            font-size: 2rem;
+            color: #facc15;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+            animation: floatUp 1.5s forwards ease-out;
+            pointer-events: none;
+        }
+
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(0.8); }
+            50% { transform: translateY(-30px) scale(1.2); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1); }
+        }
     </style>
 </head>
 <body>
 
-    <div id="notification-host"></div>
+    <div id="notification"></div>
 
-    <!-- Screen 1: Name Setup -->
-    <div id="modal-name" class="overlay">
-        <div class="card-panel">
-            <h1>UNO! ONLINE</h1>
-            <p>Enter a username to join the table</p>
-            <input type="text" id="username-input" placeholder="Your name (3-15 chars)" maxlength="15">
-            <button class="btn btn-red" onclick="saveName()">CONTINUE</button>
+    <!-- 1. NAME ENTRY SCREEN -->
+    <div id="screen-name" class="screen active">
+        <div class="panel">
+            <h1>UNO!</h1>
+            <p>Enter your display name to start playing online!</p>
+            <input type="text" id="username-input" placeholder="Your Name (3-15 chars)" maxlength="15">
+            <button class="btn" onclick="saveName()">Continue</button>
         </div>
     </div>
 
-    <!-- Screen 2: Main Menu -->
-    <div id="modal-menu" class="overlay" style="display:none;">
-        <div class="card-panel">
-            <h1>WELCOME!</h1>
-            <p>Welcome to UNO! Here you can play with your friends!<br>To start, please choose one of the options below.</p>
-            <button class="btn btn-yellow" onclick="showCreateUI()">1 - Create Room</button>
-            <button class="btn btn-blue" onclick="showJoinUI()">2 - Join Room</button>
+    <!-- 2. MAIN MENU SCREEN -->
+    <div id="screen-menu" class="screen">
+        <div class="panel">
+            <h1>UNO!</h1>
+            <p>Welcome to UNO! Here you can play with your friends!</p>
+            <p>To start, please choose one of the options down here.</p>
+            <button class="btn" onclick="showScreen('screen-create')">1 - Create room</button>
+            <button class="btn btn-secondary" onclick="openJoinMenu()">2 - Join room</button>
         </div>
     </div>
 
-    <!-- Screen 3: Create Room -->
-    <div id="modal-create" class="overlay" style="display:none;">
-        <div class="card-panel">
-            <h2>CREATE ROOM</h2>
+    <!-- 3. CREATE ROOM SCREEN -->
+    <div id="screen-create" class="screen">
+        <div class="panel">
+            <h2>Create Room</h2>
             <br>
-            <input type="text" id="room-name-input" placeholder="Room Name (1-30 chars)" maxlength="30">
-            <p style="text-align:left; margin-bottom:5px;">Max Players:</p>
-            <select id="room-max-players">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
+            <input type="text" id="room-name" placeholder="Room name (1-30 chars)" maxlength="30">
+            <p style="text-align: left; margin-bottom: 5px;">Max players:</p>
+            <select id="room-max">
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
             </select>
-            <p style="text-align:left; margin-bottom:5px;">Visibility:</p>
-            <select id="room-visibility">
-                <option value="Public">Public</option>
-                <option value="Private">Private</option>
+            <p style="text-align: left; margin-bottom: 5px;">Visibility:</p>
+            <select id="room-vis">
+                <option value="public" selected>Public</option>
+                <option value="private">Private</option>
             </select>
-            <button class="btn btn-red" onclick="submitCreateRoom()">CREATE</button>
-            <button class="btn btn-blue" onclick="showMenu()">BACK</button>
+            <button class="btn" onclick="submitCreateRoom()">Create</button>
+            <button class="btn btn-secondary" onclick="showScreen('screen-menu')">Back</button>
         </div>
     </div>
 
-    <!-- Screen 4: Waiting Lobby -->
-    <div id="modal-lobby" class="overlay" style="display:none;">
-        <div class="card-panel">
-            <h2 id="lobby-title">Waiting for people...</h2>
-            <p id="private-id-display" style="display:none; color:#facc15; font-size:1.2rem; margin-top:10px;">
-                ROOM ID: <span id="pid-val"></span> 
-                <button class="btn btn-yellow" style="width:auto; padding:4px 10px; font-size:0.8rem; display:inline-block;" onclick="copyID()">Copy</button>
-            </p>
+    <!-- 4. LOBBY WAITING SCREEN -->
+    <div id="screen-lobby" class="screen">
+        <div class="panel">
+            <h2 id="private-id-display" style="display:none; color: #38bdf8; margin-bottom: 10px;">
+                ID: <span id="room-code">------</span> 
+                <button class="btn btn-secondary" style="width: auto; padding: 4px 8px; font-size: 0.8rem;" onclick="copyRoomCode()">Copy</button>
+            </h2>
+            <h2>Waiting for people...</h2>
             <h1 id="lobby-count">0/0</h1>
-            <button class="btn btn-red" onclick="leaveLobby()">Cancel</button>
+            <button class="btn btn-danger" onclick="leaveLobby()">Cancel</button>
         </div>
     </div>
 
-    <!-- Screen 5: Server Browser -->
-    <div id="modal-join" class="overlay" style="display:none;">
-        <div class="card-panel" style="max-width:550px;">
-            <h2>SERVERS</h2>
-            <div id="server-list" style="max-height:150px; overflow-y:auto; margin:15px 0; display:flex; flex-direction:column; gap:8px;"></div>
-            <button class="btn btn-yellow" style="padding:6px;" onclick="refreshServers()">Refresh List</button>
-            <hr style="border-color:#334155; margin:15px 0;">
-            <p>OR join with your partner's private ID!</p>
-            <div style="display:flex; gap:8px;">
-                <input type="text" id="private-id-input" placeholder="6-Letter ID" maxlength="6" style="text-transform:uppercase;">
-                <button class="btn btn-blue" style="width:120px;" onclick="joinPrivate()">JOIN</button>
+    <!-- 5. JOIN ROOM SCREEN -->
+    <div id="screen-join" class="screen">
+        <div class="panel">
+            <h2>Public Servers</h2>
+            <div class="server-list" id="public-servers"></div>
+            <button class="btn btn-secondary" onclick="refreshServers()">Refresh</button>
+            <hr style="border-color: #334155; margin: 15px 0;">
+            <p style="margin-bottom: 10px;">OR join with your partner's private ID!</p>
+            <div style="display: flex; gap: 8px;">
+                <input type="text" id="private-id-input" placeholder="6-Letter ID" maxlength="6" style="margin: 0; text-transform: uppercase;">
+                <button class="btn" style="width: 100px; margin: 0;" onclick="joinPrivate()">Join</button>
             </div>
-            <button class="btn btn-red" onclick="showMenu()">BACK</button>
+            <br>
+            <button class="btn btn-secondary" onclick="showScreen('screen-menu')">Back</button>
         </div>
     </div>
 
-    <!-- Game View -->
-    <div id="game-view">
-        <div class="opponents-bar" id="opponents-container"></div>
+    <!-- 6. MATCH ARENA -->
+    <div id="screen-game" class="screen">
+        <div id="game-arena">
+            <div class="opponents-container" id="opponents-list"></div>
 
-        <div class="center-table">
-            <div class="card card-back" id="deck-pile" onclick="drawCard()"></div>
-            <div id="discard-pile"></div>
-        </div>
+            <div class="center-table">
+                <div class="deck-stack" id="deck-btn" onclick="drawCard()">DECK</div>
+                <div class="discard-stack" id="discard-pile"></div>
+            </div>
 
-        <div class="controls-layer">
-            <button id="skip-btn" class="btn btn-yellow" style="display:none;" onclick="skipTurn()">SKIP TURN</button>
-            <button id="uno-btn" class="btn btn-red" onclick="callUno()">UNO!</button>
-        </div>
+            <div id="turn-indicator">It's your turn!</div>
+            <button id="skip-draw-btn" class="btn btn-secondary" style="width: auto;" onclick="passTurn()">Skip Turn</button>
+            <button id="uno-btn" onclick="callUno()">UNO!</button>
 
-        <div class="hand-container" id="player-hand">
-            <div class="turn-banner" id="turn-banner">It's your turn!</div>
-        </div>
+            <div class="player-hand" id="my-hand"></div>
 
-        <!-- Chat Widget -->
-        <div id="chat-widget">
-            <button id="chat-btn" onclick="toggleChat()">💬<div id="unread-dot"></div></button>
-            <div id="chat-box">
-                <div id="chat-messages"></div>
+            <!-- Chat Trigger and Panel -->
+            <div id="chat-toggle" onclick="toggleChat()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+                <div id="chat-badge"></div>
+            </div>
+
+            <div id="chat-window">
+                <div class="chat-messages" id="chat-logs"></div>
                 <div id="typing-indicator"></div>
-                <div class="chat-input-row">
+                <div class="chat-input-area">
                     <input type="text" id="chat-input" placeholder="Type a message..." maxlength="150" oninput="handleTyping()">
-                    <button class="btn btn-blue" onclick="sendChatMessage()">Send</button>
+                    <button class="btn" onclick="sendChatMessage()">Send</button>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const TUNNEL_LINK = "https://abs-elements-omissions-cholesterol.trycloudflare.com";
-        const AUTH_KEY = "TuoB6PfnWN";
+        // Socket & Connection configuration
+        const link = "https://abs-elements-omissions-cholesterol.trycloudflare.com";
+        const key = "TuoB6PfnWN";
+        const socket = io(link, { auth: { token: "default_key" } });
 
-        let socket = io(TUNNEL_LINK, { auth: { token: "default_key" } });
         let myName = localStorage.getItem("uno_username") || "";
         let currentRoom = null;
-        let myHand = [];
         let isMyTurn = false;
-        let lastTypeTime = 0;
+        let turnTimer = null;
         let typingTimeout = null;
+        let isTyping = false;
+        let hasDrawn = false;
         let chatOpen = false;
 
-        // Auto Boot Flow
-        window.onload = () => {
+        // Sound FX Generators (Web Audio API)
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(freq, type = 'sine', duration = 0.1) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        // Initialize App State
+        window.addEventListener('load', () => {
             if (myName && myName.length >= 3 && myName.length <= 15) {
-                document.getElementById("modal-name").style.display = "none";
-                showMenu();
+                showScreen('screen-menu');
+            } else {
+                showScreen('screen-name');
             }
-        };
-
-        socket.on("connect", () => {
-            socket.emit("join_virtual_server", { key: AUTH_KEY });
         });
 
-        socket.on("RemoteEvent", (pkt) => {
-            const { type, data } = pkt;
+        // Navigation Controller
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
 
-            if (type === "server_list") renderServerList(data);
-            if (type === "lobby_update") updateLobbyUI(data);
-            if (type === "error_msg") showNotification(data);
-            if (type === "game_start") initGameView(data);
-            if (type === "game_state") syncGameState(data);
-            if (type === "chat_message") receiveChatMessage(data);
-            if (type === "typing_status") updateTypingIndicator(data);
-            if (type === "card_drawn_pop") triggerPlusAnimation(data);
-        });
+        function showNotification(msg) {
+            const toast = document.getElementById('notification');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
 
+        // User Setup
         function saveName() {
-            const val = document.getElementById("username-input").value.trim();
-            if (val.length < 3 || val.length > 15) return showNotification("Name must be 3 to 15 characters!");
-            myName = val;
+            const input = document.getElementById('username-input').value.trim();
+            if (input.length < 3 || input.length > 15) {
+                showNotification("Name must be between 3 and 15 characters!");
+                return;
+            }
+            myName = input;
             localStorage.setItem("uno_username", myName);
-            document.getElementById("modal-name").style.display = "none";
-            showMenu();
+            showScreen('screen-menu');
         }
 
-        function showMenu() {
-            hideAllModals();
-            document.getElementById("modal-menu").style.display = "flex";
-        }
+        // Socket Registration
+        socket.on("connect", () => {
+            socket.emit("join_virtual_server", { key });
+        });
 
-        function showCreateUI() {
-            hideAllModals();
-            document.getElementById("modal-create").style.display = "flex";
-        }
+        socket.on("joined_successfully", () => {
+            socket.emit("RemoteEvent", { type: "register_user", data: { name: myName } });
+        });
 
-        function showJoinUI() {
-            hideAllModals();
-            document.getElementById("modal-join").style.display = "flex";
+        // Screen Handlers
+        function openJoinMenu() {
+            showScreen('screen-join');
             refreshServers();
         }
 
-        function hideAllModals() {
-            document.querySelectorAll(".overlay").forEach(el => el.style.display = "none");
-        }
-
         function submitCreateRoom() {
-            const name = document.getElementById("room-name-input").value.trim();
-            const max = parseInt(document.getElementById("room-max-players").value);
-            const vis = document.getElementById("room-visibility").value;
+            const name = document.getElementById('room-name').value.trim();
+            const max = parseInt(document.getElementById('room-max').value);
+            const vis = document.getElementById('room-vis').value;
 
-            if (name.length < 1 || name.length > 30) return showNotification("Room name must be 1-30 chars!");
+            if (name.length < 1 || name.length >= 30) {
+                showNotification("Room name must be between 1 and 29 characters!");
+                return;
+            }
 
             socket.emit("RemoteEvent", {
                 type: "create_room",
-                data: { name, max, vis, host: myName }
+                data: { name, maxPlayers: max, visibility: vis }
             });
         }
 
         function refreshServers() {
-            socket.emit("RemoteEvent", { type: "get_servers" });
-        }
-
-        function renderServerList(servers) {
-            const list = document.getElementById("server-list");
-            list.innerHTML = "";
-            servers.filter(s => s.vis === "Public" && !s.inGame).forEach(s => {
-                const item = document.createElement("div");
-                item.style.cssText = "background:#1e293b; padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;";
-                item.innerHTML = `<span><b>${s.name}</b> (${s.players}/${s.max})</span>`;
-                const btn = document.createElement("button");
-                btn.className = "btn btn-blue";
-                btn.style.cssText = "width:auto; padding:6px 15px; margin:0;";
-                btn.innerText = "Join";
-                btn.onclick = () => socket.emit("RemoteEvent", { type: "join_room", data: { roomId: s.id, name: myName } });
-                item.appendChild(btn);
-                list.appendChild(item);
-            });
+            socket.emit("RemoteEvent", { type: "get_public_rooms" });
         }
 
         function joinPrivate() {
-            const code = document.getElementById("private-id-input").value.trim().toUpperCase();
-            if (code.length !== 6) return showNotification("Enter a valid 6-letter ID!");
-            socket.emit("RemoteEvent", { type: "join_room", data: { roomId: code, name: myName } });
+            const code = document.getElementById('private-id-input').value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showNotification("Please enter a valid 6-letter ID.");
+                return;
+            }
+            socket.emit("RemoteEvent", { type: "join_room", data: { roomId: code } });
         }
 
-        function updateLobbyUI(data) {
-            currentRoom = data;
-            hideAllModals();
-            document.getElementById("modal-lobby").style.display = "flex";
-            document.getElementById("lobby-count").innerText = `${data.players.length}/${data.max}`;
-            
-            const pDisplay = document.getElementById("private-id-display");
-            if (data.vis === "Private") {
-                pDisplay.style.display = "block";
-                document.getElementById("pid-val").innerText = data.id;
-            } else {
-                pDisplay.style.display = "none";
-            }
+        function joinRoom(id) {
+            socket.emit("RemoteEvent", { type: "join_room", data: { roomId: id } });
         }
 
         function leaveLobby() {
             socket.emit("RemoteEvent", { type: "leave_room" });
-            showMenu();
+            showScreen('screen-menu');
         }
 
-        function copyID() {
-            const id = document.getElementById("pid-val").innerText;
-            navigator.clipboard.writeText(id);
-            showNotification("Copied Room ID!");
+        function copyRoomCode() {
+            const code = document.getElementById('room-code').innerText;
+            navigator.clipboard.writeText(code);
+            showNotification("Room ID copied to clipboard!");
         }
 
-        function showNotification(msg) {
-            const host = document.getElementById("notification-host");
-            const toast = document.createElement("div");
-            toast.className = "toast";
-            toast.innerText = msg;
-            host.appendChild(toast);
-            setTimeout(() => toast.remove(), 4000);
-        }
-
-        /* --- GAME ENGINE & ANIMATIONS --- */
-        function initGameView(data) {
-            hideAllModals();
-            document.getElementById("game-view").style.display = "block";
-            
-            // Deal Cards Animation
-            const hand = document.getElementById("player-hand");
-            hand.innerHTML = '<div class="turn-banner" id="turn-banner">It\'s your turn!</div>';
-            
-            for (let i = 0; i < 7; i++) {
-                const card = createCardBack();
-                hand.appendChild(card);
-            }
-
-            // Flip after 0.5s
-            setTimeout(() => {
-                syncGameState(data);
-            }, 500);
-        }
-
-        function createCardBack() {
-            const c = document.createElement("div");
-            c.className = "card card-back";
-            return c;
-        }
-
-        function createCardUI(card) {
-            const c = document.createElement("div");
-            c.className = `card card-${card.color}`;
-            const inner = document.createElement("div");
-            inner.className = "card-inner";
-            inner.innerText = card.value;
-            c.appendChild(inner);
-            return c;
-        }
-
-        function syncGameState(data) {
-            myHand = data.hand;
-            isMyTurn = data.currentTurn === myName;
-
-            // Render Hand
-            const hand = document.getElementById("player-hand");
-            hand.innerHTML = '<div class="turn-banner" id="turn-banner">It\'s your turn!</div>';
-            
-            document.getElementById("turn-banner").style.display = isMyTurn ? "block" : "none";
-            document.getElementById("skip-btn").style.display = (isMyTurn && data.drawnCanSkip) ? "block" : "none";
-            document.getElementById("uno-btn").style.display = myHand.length === 2 ? "block" : "none";
-
-            myHand.forEach((card, idx) => {
-                const cardEl = createCardUI(card);
-                if (isMyTurn && isPlayable(card, data.topCard)) {
-                    cardEl.classList.add("playable");
-                }
-                cardEl.onclick = () => playCard(idx);
-                hand.appendChild(cardEl);
-            });
-
-            // Render Discard
-            const discard = document.getElementById("discard-pile");
-            discard.innerHTML = "";
-            discard.appendChild(createCardUI(data.topCard));
-
-            // Render Opponents
-            const opps = document.getElementById("opponents-container");
-            opps.innerHTML = "";
-            data.opponents.forEach(o => {
-                const box = document.createElement("div");
-                box.className = `opponent-box ${data.currentTurn === o.name ? 'active-turn' : ''}`;
-                box.id = `opp-${o.name}`;
-                box.innerHTML = `<div><b>${o.name}</b></div><div>Cards: ${o.cardCount}</div>`;
-                opps.appendChild(box);
-            });
-        }
-
-        function isPlayable(card, topCard) {
-            if (card.color === "wild") return true;
-            return card.color === topCard.color || card.value === topCard.value;
-        }
-
-        function playCard(index) {
-            if (!isMyTurn) return;
-            socket.emit("RemoteEvent", { type: "play_card", data: { index } });
-        }
-
+        // Game Actions
         function drawCard() {
             if (!isMyTurn) return;
             socket.emit("RemoteEvent", { type: "draw_card" });
         }
 
-        function skipTurn() {
-            socket.emit("RemoteEvent", { type: "skip_turn" });
+        function playCard(cardIndex) {
+            if (!isMyTurn) return;
+            socket.emit("RemoteEvent", { type: "play_card", data: { cardIndex } });
+        }
+
+        function passTurn() {
+            if (!isMyTurn || !hasDrawn) return;
+            socket.emit("RemoteEvent", { type: "pass_turn" });
         }
 
         function callUno() {
             socket.emit("RemoteEvent", { type: "call_uno" });
         }
 
-        function triggerPlusAnimation(data) {
-            const pop = document.createElement("div");
-            pop.className = "floating-pop";
-            pop.innerText = `+${data.count}`;
-            
-            let target = document.body;
-            if (data.target === myName) {
-                target = document.getElementById("player-hand");
-            } else {
-                const opp = document.getElementById(`opp-${data.target}`);
-                if (opp) target = opp;
+        // Server Response Dispatcher
+        socket.on("RemoteEvent", (pkt) => {
+            const { type, data } = pkt;
+
+            if (type === "room_created" || type === "room_joined") {
+                currentRoom = data;
+                document.getElementById('lobby-count').innerText = `${data.players.length}/${data.maxPlayers}`;
+                if (data.visibility === 'private') {
+                    document.getElementById('private-id-display').style.display = 'block';
+                    document.getElementById('room-code').innerText = data.id;
+                } else {
+                    document.getElementById('private-id-display').style.display = 'none';
+                }
+                showScreen('screen-lobby');
             }
-            target.appendChild(pop);
-            setTimeout(() => pop.remove(), 1200);
+            else if (type === "room_update") {
+                currentRoom = data;
+                document.getElementById('lobby-count').innerText = `${data.players.length}/${data.maxPlayers}`;
+            }
+            else if (type === "public_rooms_list") {
+                const container = document.getElementById('public-servers');
+                container.innerHTML = "";
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="server-item">No public rooms available</div>';
+                } else {
+                    data.forEach(r => {
+                        container.innerHTML += `
+                            <div class="server-item">
+                                <span><b>${r.name}</b> (${r.players.length}/${r.maxPlayers})</span>
+                                <button class="btn" style="width:auto; margin:0; padding:6px 12px;" onclick="joinRoom('${r.id}')">Join</button>
+                            </div>
+                        `;
+                    });
+                }
+            }
+            else if (type === "error_notification") {
+                showNotification(data.message);
+            }
+            else if (type === "game_started") {
+                showScreen('screen-game');
+                renderGameBoard(data, true);
+            }
+            else if (type === "game_state") {
+                renderGameBoard(data, false);
+            }
+            else if (type === "card_drawn_result") {
+                hasDrawn = true;
+                if (data.canPlay) {
+                    document.getElementById('skip-draw-btn').style.display = 'block';
+                }
+            }
+            else if (type === "chat_message") {
+                appendChatMessage(data);
+            }
+            else if (type === "typing_status") {
+                updateTypingIndicator(data);
+            }
+            else if (type === "card_penalty_anim") {
+                spawnFloatingText(`+${data.count}`, data.targetSocketId === socket.id ? "my-hand" : "opponents-list");
+            }
+        });
+
+        // Board Renderer & UI Logic
+        function renderGameBoard(state, isInitialDeal) {
+            const myHandEl = document.getElementById('my-hand');
+            const oppsEl = document.getElementById('opponents-list');
+            const discardEl = document.getElementById('discard-pile');
+            
+            isMyTurn = state.turnSocketId === socket.id;
+
+            // Turn Indicators & UNO Button
+            document.getElementById('turn-indicator').style.display = isMyTurn ? 'block' : 'none';
+            if (!isMyTurn) {
+                document.getElementById('skip-draw-btn').style.display = 'none';
+                hasDrawn = false;
+            }
+
+            // Render Hand
+            myHandEl.innerHTML = "";
+            const myPlayer = state.players.find(p => p.socketId === socket.id);
+            
+            if (myPlayer) {
+                // Check UNO Button Visibility (Player has 2 cards)
+                document.getElementById('uno-btn').style.display = (myPlayer.hand.length === 2 && isMyTurn) ? 'block' : 'none';
+
+                myPlayer.hand.forEach((card, idx) => {
+                    const cardEl = createCardElement(card, isInitialDeal);
+                    
+                    // Card Positioning Fan
+                    const total = myPlayer.hand.length;
+                    const offset = (idx - (total - 1) / 2) * 35;
+                    const rotation = (idx - (total - 1) / 2) * 5;
+                    cardEl.style.transform = `translateX(${offset}px) rotate(${rotation}deg)`;
+
+                    // Playability Hint (Gold Glow)
+                    if (isMyTurn && isCardPlayable(card, state.topCard)) {
+                        cardEl.classList.add('playable');
+                    }
+
+                    // Hover & Touch Animations
+                    cardEl.addEventListener('mouseenter', () => handleCardHover(idx, true));
+                    cardEl.addEventListener('mouseleave', () => handleCardHover(idx, false));
+                    cardEl.addEventListener('touchstart', () => handleCardHover(idx, true), {passive: true});
+
+                    cardEl.onclick = () => playCard(idx);
+                    myHandEl.appendChild(cardEl);
+                });
+            }
+
+            // Render Opponents
+            oppsEl.innerHTML = "";
+            state.players.filter(p => p.socketId !== socket.id).forEach(p => {
+                const oppDiv = document.createElement('div');
+                oppDiv.className = `opponent ${p.socketId === state.turnSocketId ? 'active-turn' : ''}`;
+                oppDiv.innerHTML = `
+                    <div style="font-weight: bold; color: #fff;">${p.name}</div>
+                    <div style="color: #facc15; font-weight: 900; margin-top: 4px;">🎴 ${p.cardsCount} Cards</div>
+                `;
+                oppsEl.appendChild(oppDiv);
+            });
+
+            // Render Discard Pile Top Card
+            discardEl.innerHTML = "";
+            if (state.topCard) {
+                discardEl.appendChild(createCardElement(state.topCard, false));
+            }
+
+            // Auto-Timer Penalty Warning Logic
+            clearTimeout(turnTimer);
+            if (isMyTurn) {
+                turnTimer = setTimeout(() => {
+                    playSound(150, 'sawtooth', 0.3);
+                }, 3000);
+            }
         }
 
-        /* --- CHAT SYSTEM --- */
+        function createCardElement(card, animateDeal) {
+            const cardEl = document.createElement('div');
+            cardEl.className = `card card-${card.color}`;
+            
+            const cardInner = `
+                <div class="card-inner">
+                    <div>${card.value}</div>
+                    <div class="card-center">${card.value}</div>
+                    <div style="align-self: flex-end; transform: rotate(180deg);">${card.value}</div>
+                </div>
+            `;
+
+            if (animateDeal) {
+                cardEl.innerHTML = `<div class="card-back">UNO</div>`;
+                setTimeout(() => {
+                    cardEl.innerHTML = cardInner;
+                    playSound(400, 'sine', 0.15);
+                }, 500);
+            } else {
+                cardEl.innerHTML = cardInner;
+            }
+
+            return cardEl;
+        }
+
+        function isCardPlayable(card, topCard) {
+            if (!topCard) return true;
+            if (card.color === 'wild') return true;
+            return card.color === topCard.color || card.value === topCard.value;
+        }
+
+        function handleCardHover(activeIdx, isHovered) {
+            const cards = document.querySelectorAll('#my-hand .card');
+            cards.forEach((c, i) => {
+                if (isHovered) {
+                    if (i === activeIdx) {
+                        c.style.transform += ` translateY(-25px) scale(1.1)`;
+                        c.style.zIndex = "100";
+                    } else {
+                        c.classList.add('darkened');
+                    }
+                } else {
+                    c.classList.remove('darkened');
+                }
+            });
+        }
+
+        function spawnFloatingText(text, containerId) {
+            const container = document.getElementById(containerId);
+            const el = document.createElement('div');
+            el.className = 'float-text';
+            el.innerText = text;
+            container.appendChild(el);
+            setTimeout(() => el.remove(), 1500);
+        }
+
+        // Chat System Implementation
         function toggleChat() {
             chatOpen = !chatOpen;
-            document.getElementById("chat-box").style.display = chatOpen ? "flex" : "none";
-            if (chatOpen) document.getElementById("unread-dot").style.display = "none";
+            const win = document.getElementById('chat-window');
+            if (chatOpen) {
+                win.classList.add('open');
+                document.getElementById('chat-badge').style.display = 'none';
+            } else {
+                win.classList.remove('open');
+            }
         }
 
         function handleTyping() {
-            const input = document.getElementById("chat-input");
-            if (input.value.length > 0) {
+            const val = document.getElementById('chat-input').value;
+            if (!isTyping && val.length > 0) {
+                isTyping = true;
                 socket.emit("RemoteEvent", { type: "typing_start" });
-                clearTimeout(typingTimeout);
-                typingTimeout = setTimeout(() => {
-                    socket.emit("RemoteEvent", { type: "typing_stop" });
-                }, 3000);
-            } else {
-                socket.emit("RemoteEvent", { type: "typing_stop" });
             }
+
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTyping = false;
+                socket.emit("RemoteEvent", { type: "typing_stop" });
+            }, 3000);
         }
 
         function sendChatMessage() {
-            const input = document.getElementById("chat-input");
-            const text = input.value.trim();
-            if (!text) return;
-            
-            socket.emit("RemoteEvent", { type: "send_chat", data: { text } });
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            socket.emit("RemoteEvent", { type: "send_chat", data: { message: msg } });
             input.value = "";
+            isTyping = false;
             socket.emit("RemoteEvent", { type: "typing_stop" });
         }
 
-        function receiveChatMessage(data) {
-            const box = document.getElementById("chat-messages");
-            const msg = document.createElement("div");
-            msg.className = "msg";
-            msg.innerHTML = `<div class="author">${data.author}</div><div>${data.text}</div>`;
-            box.appendChild(msg);
-            box.scrollTop = box.scrollHeight;
+        function appendChatMessage(data) {
+            const logs = document.getElementById('chat-logs');
+            const msgEl = document.createElement('div');
+            
+            if (data.isSystem) {
+                msgEl.className = 'chat-msg system';
+                msgEl.innerText = data.message;
+            } else {
+                msgEl.className = 'chat-msg';
+                msgEl.innerHTML = `<div class="sender">${data.sender}</div><div>${escapeHtml(data.message)}</div>`;
+            }
 
-            if (!chatOpen) {
-                document.getElementById("unread-dot").style.display = "block";
+            logs.appendChild(msgEl);
+            logs.scrollTop = logs.scrollHeight;
+
+            if (!chatOpen && !data.isSystem) {
+                document.getElementById('chat-badge').style.display = 'block';
+                playSound(800, 'triangle', 0.1);
             }
         }
 
-        function updateTypingIndicator(typers) {
-            const indicator = document.getElementById("typing-indicator");
-            const filtered = typers.filter(t => t !== myName);
-            if (filtered.length === 0) {
-                indicator.innerText = "";
-            } else if (filtered.length === 1) {
-                indicator.innerText = `${filtered[0]} is typing...`;
+        function updateTypingIndicator(users) {
+            const ind = document.getElementById('typing-indicator');
+            const activeTypers = users.filter(u => u !== myName);
+
+            if (activeTypers.length === 0) {
+                ind.innerText = "";
+            } else if (activeTypers.length === 1) {
+                ind.innerText = `${activeTypers[0]} is typing...`;
             } else {
-                const str = `${filtered.join(", ")} is typing...`;
-                indicator.innerText = str.length > 25 ? "Several people are typing..." : str;
+                const combined = activeTypers.join(', ');
+                if (combined.length > 25) {
+                    ind.innerText = "Several people are typing...";
+                } else {
+                    ind.innerText = `${combined} are typing...`;
+                }
             }
+        }
+
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
     </script>
 </body>
