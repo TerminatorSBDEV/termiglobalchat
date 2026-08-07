@@ -1,959 +1,527 @@
-<!-- index.html - UNO! Client App -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UNO! Online</title>
+    <title>UNO! Animated Multiplayer</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
-        :root {
-            --uno-red: #ed1c24;
-            --uno-yellow: #ffde00;
-            --uno-green: #00a651;
-            --uno-blue: #00adef;
-            --uno-dark: #0f172a;
-            --uno-card-bg: #1e293b;
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select: none; }
+        body { background: radial-gradient(circle, #1a1c29 0%, #0a0b10 100%); color: #fff; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-            -webkit-user-select: none;
-            font-family: 'Arial Black', Impact, sans-serif;
-        }
+        .hidden { display: none !important; }
+        .glass-panel { background: rgba(255, 255, 255, 0.08); backdrop-filter: blur(12px); border: 2px solid rgba(255, 255, 255, 0.15); border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); }
 
-        body {
-            background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
-            color: #fff;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+        /* MODAL / OVERLAY */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 1000; animation: fadeIn 0.3s ease; }
+        .card-modal { padding: 30px; width: 90%; max-width: 420px; text-align: center; }
+        h2 { font-size: 2rem; color: #facc15; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(250,204,21,0.5); }
+        input[type="text"] { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.5); border: 2px solid #3b82f6; border-radius: 10px; color: #fff; font-size: 1.1rem; outline: none; margin: 15px 0; transition: border-color 0.3s; }
+        input[type="text"]:focus { border-color: #facc15; }
+        
+        .btn { width: 100%; padding: 14px; margin: 8px 0; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .btn-primary { background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; box-shadow: 0 5px 15px rgba(34,197,94,0.4); }
+        .btn-primary:hover { transform: translateY(-3px) scale(1.02); }
+        .btn-secondary { background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: #fff; box-shadow: 0 5px 15px rgba(59,130,246,0.4); }
+        .btn-secondary:hover { transform: translateY(-3px) scale(1.02); }
+        .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; }
 
-        /* Screens Container */
-        .screen {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.4s ease;
-            padding: 20px;
-        }
+        /* LOBBY */
+        .lobby-title { font-size: 2.2rem; margin-bottom: 10px; color: #ff5555; text-shadow: 2px 2px #000; }
+        .server-list { max-height: 200px; overflow-y: auto; margin: 15px 0; padding-right: 5px; }
+        .server-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.05); padding: 10px 15px; border-radius: 8px; margin-bottom: 8px; }
 
-        .screen.active {
-            opacity: 1;
-            pointer-events: all;
-        }
+        /* GAME BOARD */
+        #game-screen { width: 100vw; height: 100vh; position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: center; padding: 20px; }
+        .table-area { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; gap: 30px; align-items: center; z-index: 10; }
+        
+        /* CARD DESIGNS */
+        .card { width: 90px; height: 135px; border-radius: 10px; background: #fff; border: 4px solid #fff; position: relative; cursor: pointer; transform-style: preserve-3d; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s, box-shadow 0.3s; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
+        .card-inner { width: 100%; height: 100%; border-radius: 6px; display: flex; justify-content: center; align-items: center; font-size: 2.2rem; font-weight: 900; color: #fff; position: relative; text-shadow: 2px 2px 0px #000; }
+        .card-back { background: radial-gradient(circle, #ff0555 0%, #aa0022 100%); border: 3px solid #facc15; }
+        .card-back::after { content: 'UNO'; font-style: italic; font-size: 1.2rem; color: #facc15; transform: rotate(-25deg); font-weight: 900; }
+        
+        .red { background: #ef4444; }
+        .blue { background: #3b82f6; }
+        .green { background: #22c55e; }
+        .yellow { background: #eab308; }
+        .black { background: #1e293b; }
 
-        /* Card Visuals */
-        .card {
-            width: 80px;
-            height: 120px;
-            border-radius: 10px;
-            background: #fff;
-            border: 4px solid #fff;
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s ease;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
+        .card.can-play { box-shadow: 0 0 15px 5px rgba(250, 204, 21, 0.8); border-color: #facc15; }
+        
+        /* HAND CONTAINER */
+        .hand { display: flex; justify-content: center; align-items: flex-end; height: 160px; width: 100%; max-width: 900px; padding-bottom: 10px; position: relative; z-index: 20; }
+        .hand .card { margin-left: -35px; }
+        .hand .card:first-child { margin-left: 0; }
+        .hand:hover .card:not(:hover) { filter: brightness(0.8); }
+        .hand .card:hover { transform: translateY(-30px) scale(1.15); z-index: 100; }
 
-        .card-inner {
-            width: 100%;
-            height: 100%;
-            border-radius: 6px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            font-size: 2rem;
-            color: white;
-            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
-            position: relative;
-            overflow: hidden;
-        }
+        /* UI ELEMENTS */
+        .turn-indicator { position: absolute; bottom: 180px; background: #facc15; color: #000; padding: 8px 20px; border-radius: 20px; font-weight: 900; font-size: 1.2rem; animation: pulse 1s infinite alternate; }
+        .uno-btn { position: absolute; right: 40px; bottom: 180px; width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #ef4444, #991b1b); border: 4px solid #facc15; color: #fff; font-weight: 900; font-size: 1.3rem; font-style: italic; cursor: pointer; box-shadow: 0 0 20px rgba(239,68,68,0.8); animation: bounce 0.6s infinite alternate; z-index: 30; }
+        .skip-btn { position: absolute; bottom: 180px; left: 40px; padding: 10px 20px; background: #3b82f6; border-radius: 10px; font-weight: bold; cursor: pointer; border: 2px solid #fff; z-index: 30; }
 
-        .card-inner::before {
-            content: '';
-            position: absolute;
-            width: 140%;
-            height: 70%;
-            background: rgba(255,255,255,0.2);
-            transform: rotate(-30deg);
-            border-radius: 50%;
-        }
+        /* CHAT SYSTEM */
+        .chat-toggle { position: fixed; bottom: 15px; left: 15px; width: 50px; height: 50px; border-radius: 50%; background: #3b82f6; display: flex; justify-content: center; align-items: center; cursor: pointer; z-index: 100; box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
+        .unread-dot { position: absolute; top: 0; right: 0; width: 15px; height: 15px; background: #ef4444; border-radius: 50%; border: 2px solid #fff; }
+        .chat-window { position: fixed; bottom: 75px; left: 15px; width: 320px; height: 400px; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(255,255,255,0.2); border-radius: 15px; display: flex; flex-direction: column; z-index: 100; overflow: hidden; backdrop-filter: blur(10px); }
+        .chat-messages { flex: 1; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.9rem; }
+        .chat-msg { background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 8px; word-break: break-word; }
+        .chat-typing { font-size: 0.75rem; color: #94a3b8; padding: 2px 10px; font-style: italic; }
+        .chat-input-area { display: flex; padding: 8px; background: rgba(0,0,0,0.3); }
+        .chat-input-area input { flex: 1; background: transparent; border: none; color: #fff; outline: none; padding: 5px; }
+        
+        /* NOTIFICATIONS & ANIMATIONS */
+        .toast { position: fixed; top: 20px; background: #ef4444; color: #fff; padding: 12px 25px; border-radius: 10px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.5); z-index: 2000; animation: slideDown 0.3s forwards; }
+        .floating-cards { position: absolute; font-size: 2rem; font-weight: 900; color: #facc15; animation: floatUp 1.2s ease-out forwards; pointer-events: none; z-index: 50; }
 
-        .card.back {
-            background: #000;
-            border: 4px solid #fff;
-        }
-
-        .card.back .card-inner {
-            background: radial-gradient(circle, #ed1c24 0%, #7f1d1d 100%);
-            font-size: 1.2rem;
-            color: #ffde00;
-            font-style: italic;
-            transform: rotate(-15deg);
-        }
-
-        .card.red .card-inner { background: var(--uno-red); }
-        .card.yellow .card-inner { background: var(--uno-yellow); }
-        .card.green .card-inner { background: var(--uno-green); }
-        .card.blue .card-inner { background: var(--uno-blue); }
-        .card.wild .card-inner { background: linear-gradient(45deg, var(--uno-red), var(--uno-yellow), var(--uno-green), var(--uno-blue)); }
-
-        /* Dialog UI Components */
-        .panel {
-            background: rgba(30, 41, 59, 0.95);
-            border: 4px solid #3b82f6;
-            border-radius: 20px;
-            padding: 30px;
-            width: 100%;
-            max-width: 450px;
-            box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
-            text-align: center;
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        @keyframes popIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-
-        h1 {
-            font-size: 2.5rem;
-            margin-bottom: 15px;
-            color: #ffde00;
-            text-shadow: 3px 3px 0 #ed1c24;
-            letter-spacing: 2px;
-        }
-
-        p {
-            font-size: 1rem;
-            margin-bottom: 20px;
-            color: #cbd5e1;
-            font-family: sans-serif;
-            font-weight: normal;
-        }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 12px 20px;
-            border-radius: 10px;
-            border: 2px solid #475569;
-            background: #0f172a;
-            color: #fff;
-            font-size: 1.1rem;
-            margin-bottom: 20px;
-            outline: none;
-            text-align: center;
-        }
-
-        input[type="text"]:focus {
-            border-color: #3b82f6;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #fff;
-            background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
-            cursor: pointer;
-            box-shadow: 0 4px 0 #166534;
-            transition: transform 0.1s, box-shadow 0.1s;
-            margin-bottom: 10px;
-        }
-
-        .btn:active {
-            transform: translateY(4px);
-            box-shadow: 0 0 0 #166534;
-        }
-
-        .btn-secondary {
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            box-shadow: 0 4px 0 #1e40af;
-        }
-
-        .btn-secondary:active {
-            box-shadow: 0 0 0 #1e40af;
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-            box-shadow: 0 4px 0 #991b1b;
-        }
-
-        .btn-danger:active {
-            box-shadow: 0 0 0 #991b1b;
-        }
-
-        /* Room Configuration Options */
-        .option-group {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .opt-btn {
-            flex: 1;
-            padding: 10px;
-            background: #0f172a;
-            border: 2px solid #475569;
-            border-radius: 8px;
-            color: #fff;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-
-        .opt-btn.selected {
-            border-color: #ffde00;
-            background: #1e3a8a;
-            color: #ffde00;
-        }
-
-        /* Servers List */
-        .server-list {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 2px solid #334155;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            background: #0f172a;
-        }
-
-        .server-item {
-            padding: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #1e293b;
-            cursor: pointer;
-        }
-
-        .server-item:hover {
-            background: #1e293b;
-        }
-
-        /* Match UI Layout */
-        #match-screen {
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-        }
-
-        .opponents-container {
-            display: flex;
-            justify-content: space-around;
-            width: 100%;
-            max-width: 800px;
-        }
-
-        .opponent {
-            background: rgba(15, 23, 42, 0.8);
-            padding: 10px 15px;
-            border-radius: 12px;
-            border: 2px solid #334155;
-            text-align: center;
-        }
-
-        .opponent.active-turn {
-            border-color: #ffde00;
-            box-shadow: 0 0 15px rgba(255, 222, 0, 0.5);
-        }
-
-        .center-board {
-            display: flex;
-            gap: 30px;
-            align-items: center;
-            margin: 20px 0;
-        }
-
-        .hand-container {
-            display: flex;
-            justify-content: center;
-            align-items: flex-end;
-            width: 100%;
-            max-width: 900px;
-            height: 150px;
-            position: relative;
-        }
-
-        .hand-cards {
-            display: flex;
-            justify-content: center;
-            position: relative;
-        }
-
-        /* Hover slide & dimming mechanics */
-        .hand-cards:hover .card {
-            filter: brightness(0.8);
-        }
-
-        .hand-cards .card:hover {
-            filter: brightness(1) !important;
-            transform: translateY(-25px) scale(1.1) !important;
-            z-index: 100 !important;
-        }
-
-        /* Chat Controls & Floating Window */
-        .chat-btn-container {
-            position: absolute;
-            bottom: 10px;
-            left: 20px;
-        }
-
-        .chat-toggle {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: #3b82f6;
-            border: none;
-            color: #fff;
-            font-size: 1.5rem;
-            cursor: pointer;
-            position: relative;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        .chat-badge {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 14px;
-            height: 14px;
-            background: #ef4444;
-            border-radius: 50%;
-            border: 2px solid #fff;
-            display: none;
-        }
-
-        .chat-window {
-            position: absolute;
-            bottom: 70px;
-            left: 20px;
-            width: 300px;
-            height: 350px;
-            background: rgba(15, 23, 42, 0.95);
-            border: 2px solid #3b82f6;
-            border-radius: 12px;
-            display: none;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            z-index: 200;
-        }
-
-        .chat-window.open {
-            display: flex;
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 10px;
-            overflow-y: auto;
-            font-family: sans-serif;
-            font-size: 0.9rem;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .chat-msg {
-            background: #1e293b;
-            padding: 6px 10px;
-            border-radius: 6px;
-            word-break: break-word;
-        }
-
-        .chat-msg.system {
-            background: #991b1b;
-            color: #fca5a5;
-            font-style: italic;
-        }
-
-        .chat-input-area {
-            display: flex;
-            padding: 8px;
-            background: #0f172a;
-            gap: 5px;
-        }
-
-        .chat-input-area input {
-            flex: 1;
-            margin-bottom: 0;
-            padding: 8px;
-            font-size: 0.9rem;
-            font-family: sans-serif;
-        }
-
-        .chat-input-area button {
-            width: auto;
-            padding: 8px 15px;
-            margin-bottom: 0;
-            font-size: 0.9rem;
-        }
-
-        /* Notifications */
-        .notification-toast {
-            position: absolute;
-            top: 20px;
-            background: #ef4444;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-family: sans-serif;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
-            display: none;
-            z-index: 1000;
-            animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Color Picker Modal */
-        .color-picker {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 300;
-        }
-
-        .color-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            width: 200px;
-            height: 200px;
-        }
-
-        .color-btn {
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-        }
-
-        .uno-call-btn {
-            position: absolute;
-            right: 20px;
-            bottom: 20px;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ed1c24 0%, #7f1d1d 100%);
-            border: 4px solid #ffde00;
-            color: #ffde00;
-            font-size: 1.2rem;
-            cursor: pointer;
-            box-shadow: 0 0 15px rgba(237, 28, 36, 0.6);
-        }
+        @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.08); } }
+        @keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-10px); } }
+        @keyframes slideDown { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes floatUp { 0% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(-80px) scale(1.5); } }
     </style>
 </head>
 <body>
 
-    <!-- Notification Toast -->
-    <div id="toast" class="notification-toast"></div>
+    <div id="toast-container"></div>
 
-    <!-- Name Screen -->
-    <div id="name-screen" class="screen active">
-        <div class="panel">
-            <h1>UNO!</h1>
-            <p>Enter your display name to start playing online</p>
-            <input type="text" id="username-input" placeholder="Name (3-15 chars)" maxlength="15">
-            <button class="btn" id="save-name-btn">PLAY NOW</button>
+    <!-- NAME ENTRY MODAL -->
+    <div id="modal-name" class="overlay">
+        <div class="card-modal glass-panel">
+            <h2>Welcome to UNO!</h2>
+            <p>Enter your display name to continue</p>
+            <input type="text" id="input-username" placeholder="Username (3-15 chars)" maxlength="15">
+            <button class="btn btn-primary" onclick="submitName()">Play Now</button>
         </div>
     </div>
 
-    <!-- Main Menu Screen -->
-    <div id="menu-screen" class="screen">
-        <div class="panel">
-            <h1>UNO!</h1>
-            <p>Welcome to UNO! Here you can play with your friends!</p>
-            <p>To start, please choose one of the options down here.</p>
-            <button class="btn" id="nav-create-btn">1 - Create room</button>
-            <button class="btn btn-secondary" id="nav-join-btn">2 - Join room</button>
+    <!-- MAIN MENU -->
+    <div id="modal-menu" class="overlay hidden">
+        <div class="card-modal glass-panel">
+            <h1 class="lobby-title">UNO! ONLINE</h1>
+            <p style="margin-bottom: 20px; color: #cbd5e1;">Welcome! Play with your friends online.</p>
+            <button class="btn btn-primary" onclick="showCreateRoom()">1 - Create Room</button>
+            <button class="btn btn-secondary" onclick="showJoinRoom()">2 - Join Room</button>
         </div>
     </div>
 
-    <!-- Create Room Config Screen -->
-    <div id="create-screen" class="screen">
-        <div class="panel">
-            <h1>CREATE ROOM</h1>
-            <input type="text" id="room-name-input" placeholder="Room name (1-30 chars)" maxlength="30">
-            
-            <p style="margin-bottom:8px">Max Players:</p>
-            <div class="option-group" id="max-players-group">
-                <button class="opt-btn selected" data-val="2">2</button>
-                <button class="opt-btn" data-val="3">3</button>
-                <button class="opt-btn" data-val="4">4</button>
+    <!-- CREATE ROOM MODAL -->
+    <div id="modal-create" class="overlay hidden">
+        <div class="card-modal glass-panel">
+            <h2>Create Room</h2>
+            <input type="text" id="room-name" placeholder="Room Name (1-30 chars)" maxlength="30">
+            <p style="text-align: left; margin: 10px 0 5px 0;">Max Players:</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button class="btn btn-secondary opt-max" onclick="selectMax(this, 2)">2</button>
+                <button class="btn btn-secondary opt-max" onclick="selectMax(this, 3)">3</button>
+                <button class="btn btn-primary opt-max" onclick="selectMax(this, 4)">4</button>
             </div>
-
-            <p style="margin-bottom:8px">Visibility:</p>
-            <div class="option-group" id="visibility-group">
-                <button class="opt-btn selected" data-val="public">Public</button>
-                <button class="opt-btn" data-val="private">Private</button>
+            <p style="text-align: left; margin: 10px 0 5px 0;">Visibility:</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button class="btn btn-primary opt-vis" onclick="selectVis(this, 'Public')">Public</button>
+                <button class="btn btn-secondary opt-vis" onclick="selectVis(this, 'Private')">Private</button>
             </div>
-
-            <button class="btn" id="confirm-create-btn">CREATE</button>
-            <button class="btn btn-danger" id="back-create-btn">CANCEL</button>
+            <button class="btn btn-primary" onclick="confirmCreateRoom()">Create</button>
+            <button class="btn btn-danger" onclick="backToMenu()">Back</button>
         </div>
     </div>
 
-    <!-- Waiting Lobby Screen -->
-    <div id="lobby-screen" class="screen">
-        <div class="panel">
-            <h1 id="lobby-title">Waiting for people...</h1>
-            <div id="private-id-display" style="display:none; margin-bottom: 15px;">
-                <p style="margin-bottom: 5px;">PRIVATE ID:</p>
-                <span id="private-code" style="font-size: 1.8rem; color: #ffde00; letter-spacing: 4px;">======</span>
-                <button class="btn btn-secondary" id="copy-code-btn" style="padding: 5px 10px; font-size: 0.8rem; width: auto; margin-left: 10px;">COPY</button>
+    <!-- JOIN ROOM MODAL -->
+    <div id="modal-join" class="overlay hidden">
+        <div class="card-modal glass-panel" style="max-width: 500px;">
+            <h2>Public Servers</h2>
+            <div id="server-list" class="server-list"></div>
+            <button class="btn btn-secondary" onclick="refreshServers()" style="margin-bottom: 15px;">Refresh</button>
+            <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
+            <p style="margin: 10px 0;">OR Join via Private ID:</p>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="private-id-input" placeholder="6-Letter ID" maxlength="6" style="margin:0;">
+                <button class="btn btn-primary" style="width: auto; padding: 0 20px;" onclick="joinPrivate()">Join</button>
             </div>
-            <p id="player-count-display">0/0</p>
-            <button class="btn btn-danger" id="cancel-lobby-btn">Cancel</button>
+            <button class="btn btn-danger" onclick="backToMenu()" style="margin-top: 15px;">Back</button>
         </div>
     </div>
 
-    <!-- Join Room Screen -->
-    <div id="join-screen" class="screen">
-        <div class="panel">
-            <h1>SERVERS</h1>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <span style="font-size:0.9rem;">Public Servers:</span>
-                <button id="refresh-servers-btn" class="btn btn-secondary" style="width:auto; padding: 4px 10px; font-size: 0.8rem;">Refresh</button>
+    <!-- LOBBY WAITING SCREEN -->
+    <div id="modal-waiting" class="overlay hidden">
+        <div class="card-modal glass-panel">
+            <h2 id="wait-title">Waiting for people...</h2>
+            <div id="private-code-display" class="hidden" style="margin: 15px 0;">
+                <p>Private Room ID:</p>
+                <h1 id="room-code-text" style="color: #facc15; letter-spacing: 5px;">------</h1>
+                <button class="btn btn-secondary" onclick="copyCode()" style="padding: 5px; font-size: 0.8rem;">Copy ID</button>
             </div>
-            
-            <div id="servers-container" class="server-list">
-                <!-- Dynamically populated -->
-            </div>
-
-            <p style="margin: 15px 0 5px 0;">OR join with your partner's private ID!</p>
-            <div style="display:flex; gap:10px;">
-                <input type="text" id="private-id-input" placeholder="6-Letter ID" maxlength="6" style="text-transform:uppercase; margin-bottom:0;">
-                <button class="btn btn-secondary" id="join-private-btn" style="width: auto; padding: 0 20px;">Join</button>
-            </div>
-            <button class="btn btn-danger" id="back-join-btn" style="margin-top: 15px;">BACK</button>
+            <h1 id="wait-count" style="font-size: 3rem; margin: 20px 0;">1/4</h1>
+            <button class="btn btn-danger" onclick="leaveRoom()">Cancel</button>
         </div>
     </div>
 
-    <!-- Match Screen -->
-    <div id="match-screen" class="screen">
-        <!-- Opponents display -->
-        <div class="opponents-container" id="opponents-list"></div>
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="hidden">
+        <!-- OPPONENTS TOP/SIDES -->
+        <div id="opponents-container" style="width:100%; display:flex; justify-content:space-around; z-index:10;"></div>
 
-        <!-- Center Playing Field -->
-        <div class="center-board">
-            <!-- Draw Deck -->
-            <div class="card back" id="draw-deck">
-                <div class="card-inner">UNO</div>
-            </div>
-            <!-- Discard Pile -->
-            <div class="card" id="discard-pile">
-                <div class="card-inner" id="discard-content"></div>
-            </div>
+        <!-- TABLE CENTER -->
+        <div class="table-area">
+            <!-- DECK -->
+            <div id="deck" class="card card-back" onclick="drawCard()"></div>
+            <!-- DISCARD PILE -->
+            <div id="discard-pile" class="card"></div>
         </div>
 
-        <!-- Local Player Hand -->
-        <div class="hand-container">
-            <div class="hand-cards" id="player-hand"></div>
-        </div>
+        <!-- CLIENT ACTIONS & TURN DISPLAY -->
+        <div id="turn-display" class="turn-indicator hidden">It's your turn!</div>
+        <button id="uno-btn" class="uno-btn hidden" onclick="pressUno()">UNO!</button>
+        <button id="skip-btn" class="skip-btn hidden" onclick="passTurn()">Skip Turn</button>
 
-        <!-- Chat Trigger & Container -->
-        <div class="chat-btn-container">
-            <button class="chat-toggle" id="chat-toggle-btn">
-                💬
-                <div class="chat-badge" id="chat-badge"></div>
-            </button>
-        </div>
-
-        <div class="chat-window" id="chat-window">
-            <div class="chat-messages" id="chat-messages"></div>
-            <div class="chat-input-area">
-                <input type="text" id="chat-input" placeholder="Type a message..." maxlength="150">
-                <button class="btn" id="send-chat-btn">Send</button>
-            </div>
-        </div>
-
-        <button class="uno-call-btn" id="uno-call-btn">UNO!</button>
+        <!-- CLIENT HAND -->
+        <div id="my-hand" class="hand"></div>
     </div>
 
-    <!-- Wild Color Picker Modal -->
-    <div class="color-picker" id="color-picker">
-        <div class="color-grid">
-            <button class="color-btn" style="background:var(--uno-red)" data-color="red"></button>
-            <button class="color-btn" style="background:var(--uno-yellow)" data-color="yellow"></button>
-            <button class="color-btn" style="background:var(--uno-green)" data-color="green"></button>
-            <button class="color-btn" style="background:var(--uno-blue)" data-color="blue"></button>
+    <!-- CHAT SYSTEM -->
+    <div id="chat-toggle" class="chat-toggle hidden" onclick="toggleChat()">
+        💬
+        <div id="unread-dot" class="unread-dot hidden"></div>
+    </div>
+
+    <div id="chat-window" class="chat-window hidden">
+        <div id="chat-messages" class="chat-messages"></div>
+        <div id="chat-typing" class="chat-typing"></div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message..." maxlength="150" oninput="handleTyping()">
+            <button class="btn btn-primary" style="width: auto; padding: 5px 12px; margin: 0;" onclick="sendChatMessage()">Send</button>
         </div>
     </div>
 
     <script>
-        // Server Connection Config
-        const LINK = "https://abs-elements-omissions-cholesterol.trycloudflare.com";
-        const KEY = "TuoB6PfnWN";
-        
-        // Socket Client Initialization
-        const socket = io(LINK, { auth: { token: "default_key" } });
+        const TUNNEL_LINK = "https://abs-elements-omissions-cholesterol.trycloudflare.com";
+        const AUTH_KEY = "TuoB6PfnWN";
 
-        // Local State Management
-        let localPlayer = {
-            id: Math.random().toString(36).substring(2, 9),
-            name: localStorage.getItem("uno_username") || ""
-        };
-
+        let socket = io(TUNNEL_LINK, { auth: { token: "default_key" } });
+        let myUsername = localStorage.getItem('uno_username') || '';
+        let myClientId = Math.random().toString(36).substring(2, 10);
         let currentRoom = null;
-        let gameState = null;
-        let lastMessageTime = 0;
-        let pendingWildCardIndex = null;
+        let selectedMax = 4;
+        let selectedVis = 'Public';
+        let isChatOpen = false;
+        let typingTimeout = null;
+        let isTypingSent = false;
+        let turnTimer = null;
 
-        // UI View Switcher Helper
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById(screenId).classList.add('active');
-        }
-
-        function showToast(text, duration = 3000) {
-            const toast = document.getElementById('toast');
-            toast.innerText = text;
-            toast.style.display = 'block';
-            setTimeout(() => { toast.style.display = 'none'; }, duration);
-        }
-
-        // Socket Event Listeners
+        // Connect
         socket.on("connect", () => {
-            socket.emit("join_virtual_server", { key: KEY });
+            socket.emit("join_virtual_server", { key: AUTH_KEY });
         });
 
         socket.on("joined_successfully", () => {
-            if (localPlayer.name) {
-                showScreen("menu-screen");
-            } else {
-                showScreen("name-screen");
+            if (myUsername) {
+                document.getElementById('modal-name').classList.add('hidden');
+                document.getElementById('modal-menu').classList.remove('hidden');
             }
         });
 
+        // Handle Remotes
         socket.on("RemoteEvent", (pkt) => {
             const { type, data } = pkt;
-
-            if (type === "room_created" || type === "room_joined") {
-                currentRoom = data;
-                updateLobbyUI();
-                showScreen("lobby-screen");
-            } else if (type === "lobby_update") {
-                currentRoom = data;
-                updateLobbyUI();
-            } else if (type === "public_rooms_list") {
-                renderServerList(data);
-            } else if (type === "join_error") {
-                showToast(data.message, 4000);
-            } else if (type === "game_start_animation") {
-                showScreen("match-screen");
-                animateDealCards(data);
-            } else if (type === "game_state_update") {
-                gameState = data;
-                renderGameBoard();
-            } else if (type === "chat_message") {
-                receiveChatMessage(data);
-            } else if (type === "chat_warning") {
-                appendChatMessage({ sender: "SYSTEM", text: data.message, isSystem: true });
-            }
+            if (type === "room_update") updateWaitingLobby(data);
+            if (type === "server_list") renderServerList(data);
+            if (type === "error_msg") showToast(data);
+            if (type === "game_start") initGameUI(data);
+            if (type === "game_state_update") updateGameState(data);
+            if (type === "chat_message") receiveChatMessage(data);
+            if (type === "typing_update") updateTypingDisplay(data);
+            if (type === "card_drawn_anim") showCardFx(data);
         });
 
-        // Username Handlers
-        document.getElementById('save-name-btn').addEventListener('click', () => {
-            const name = document.getElementById('username-input').value.trim();
-            if (name.length < 3 || name.length > 15) {
-                showToast("Name must be between 3 and 15 characters!");
+        function submitName() {
+            const val = document.getElementById('input-username').value.trim();
+            if (val.length < 3 || val.length > 15) {
+                showToast("Username must be between 3 and 15 characters!");
                 return;
             }
-            localPlayer.name = name;
-            localStorage.setItem("uno_username", name);
-            showScreen("menu-screen");
-        });
-
-        // Menu Navigation
-        document.getElementById('nav-create-btn').addEventListener('click', () => showScreen('create-screen'));
-        document.getElementById('nav-join-btn').addEventListener('click', () => {
-            showScreen('join-screen');
-            refreshServers();
-        });
-        document.getElementById('back-create-btn').addEventListener('click', () => showScreen('menu-screen'));
-        document.getElementById('back-join-btn').addEventListener('click', () => showScreen('menu-screen'));
-
-        // Option Selector Handlers
-        function setupOptionGroups(groupId) {
-            const container = document.getElementById(groupId);
-            container.querySelectorAll('.opt-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    container.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
-                    btn.classList.add('selected');
-                });
-            });
+            myUsername = val;
+            localStorage.setItem('uno_username', myUsername);
+            document.getElementById('modal-name').classList.add('hidden');
+            document.getElementById('modal-menu').classList.remove('hidden');
         }
-        setupOptionGroups('max-players-group');
-        setupOptionGroups('visibility-group');
 
-        // Create Room Event Trigger
-        document.getElementById('confirm-create-btn').addEventListener('click', () => {
-            const name = document.getElementById('room-name-input').value.trim();
-            if (name.length < 1 || name.length > 30) {
-                showToast("Room name must be between 1 and 30 characters!");
+        function showCreateRoom() {
+            document.getElementById('modal-menu').classList.add('hidden');
+            document.getElementById('modal-create').classList.remove('hidden');
+        }
+
+        function showJoinRoom() {
+            document.getElementById('modal-menu').classList.add('hidden');
+            document.getElementById('modal-join').classList.remove('hidden');
+            refreshServers();
+        }
+
+        function backToMenu() {
+            document.getElementById('modal-create').classList.add('hidden');
+            document.getElementById('modal-join').classList.add('hidden');
+            document.getElementById('modal-menu').classList.remove('hidden');
+        }
+
+        function selectMax(el, count) {
+            document.querySelectorAll('.opt-max').forEach(b => b.className = 'btn btn-secondary opt-max');
+            el.className = 'btn btn-primary opt-max';
+            selectedMax = count;
+        }
+
+        function selectVis(el, vis) {
+            document.querySelectorAll('.opt-vis').forEach(b => b.className = 'btn btn-secondary opt-vis');
+            el.className = 'btn btn-primary opt-vis';
+            selectedVis = vis;
+        }
+
+        function confirmCreateRoom() {
+            const name = document.getElementById('room-name').value.trim();
+            if (name.length < 1 || name.length >= 30) {
+                showToast("Room name must be 1 to 29 characters!");
                 return;
             }
-            const maxPlayers = parseInt(document.getElementById('max-players-group').querySelector('.selected').dataset.val);
-            const visibility = document.getElementById('visibility-group').querySelector('.selected').dataset.val;
-
             socket.emit("RemoteEvent", {
                 type: "create_room",
-                data: { roomName: name, maxPlayers, visibility, host: localPlayer }
+                data: { name, max: selectedMax, vis: selectedVis, host: myUsername, clientId: myClientId }
             });
-        });
-
-        function updateLobbyUI() {
-            if (!currentRoom) return;
-            document.getElementById('player-count-display').innerText = `${currentRoom.players.length}/${currentRoom.maxPlayers}`;
-            
-            const privDisplay = document.getElementById('private-id-display');
-            if (currentRoom.visibility === 'private') {
-                privDisplay.style.display = 'block';
-                document.getElementById('private-code').innerText = currentRoom.id;
-            } else {
-                privDisplay.style.display = 'none';
-            }
         }
 
-        document.getElementById('cancel-lobby-btn').addEventListener('click', () => {
-            socket.emit("RemoteEvent", { type: "leave_room", data: { roomId: currentRoom.id, playerId: localPlayer.id } });
-            currentRoom = null;
-            showScreen("menu-screen");
-        });
-
-        document.getElementById('copy-code-btn').addEventListener('click', () => {
-            navigator.clipboard.writeText(currentRoom.id);
-            showToast("Private ID copied to clipboard!");
-        });
-
-        // Join Private or Public Rooms
         function refreshServers() {
-            socket.emit("RemoteEvent", { type: "get_public_rooms" });
+            socket.emit("RemoteEvent", { type: "get_servers" });
         }
-        document.getElementById('refresh-servers-btn').addEventListener('click', refreshServers);
 
-        function renderServerList(rooms) {
-            const container = document.getElementById('servers-container');
+        function renderServerList(list) {
+            const container = document.getElementById('server-list');
             container.innerHTML = '';
-            if (rooms.length === 0) {
-                container.innerHTML = '<div style="padding:15px; color:#64748b;">No public rooms available</div>';
-                return;
-            }
-            rooms.forEach(r => {
-                const item = document.createElement('div');
-                item.className = 'server-item';
-                item.innerHTML = `<span>${r.name}</span><span>${r.players.length}/${r.maxPlayers}</span>`;
-                item.addEventListener('click', () => {
-                    socket.emit("RemoteEvent", { type: "join_room", data: { roomId: r.id, player: localPlayer } });
-                });
-                container.appendChild(item);
+            list.forEach(srv => {
+                const div = document.createElement('div');
+                div.className = 'server-item';
+                div.innerHTML = `<span><b>${srv.name}</b> (${srv.players}/${srv.max})</span>`;
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-primary';
+                btn.style.width = 'auto';
+                btn.style.padding = '5px 15px';
+                btn.innerText = 'Join';
+                btn.onclick = () => joinRoomById(srv.id);
+                div.appendChild(btn);
+                container.appendChild(div);
             });
         }
 
-        document.getElementById('join-private-btn').addEventListener('click', () => {
+        function joinPrivate() {
             const code = document.getElementById('private-id-input').value.trim().toUpperCase();
             if (code.length !== 6) {
                 showToast("ERROR:\nthis room is currently not avaiable, please try a different ID, Thank you!");
                 return;
             }
-            socket.emit("RemoteEvent", { type: "join_room", data: { roomId: code, player: localPlayer } });
-        });
+            joinRoomById(code);
+        }
 
-        // Dealing Cards Animation
-        function animateDealCards(initialState) {
-            const handContainer = document.getElementById('player-hand');
-            handContainer.innerHTML = '';
+        function joinRoomById(id) {
+            socket.emit("RemoteEvent", { type: "join_room", data: { roomId: id, username: myUsername, clientId: myClientId } });
+        }
+
+        function updateWaitingLobby(room) {
+            currentRoom = room;
+            document.getElementById('modal-create').classList.add('hidden');
+            document.getElementById('modal-join').classList.add('hidden');
+            document.getElementById('modal-waiting').classList.remove('hidden');
+
+            document.getElementById('wait-count').innerText = `${room.players.length}/${room.max}`;
+            if (room.vis === 'Private') {
+                document.getElementById('private-code-display').classList.remove('hidden');
+                document.getElementById('room-code-text').innerText = room.id;
+            } else {
+                document.getElementById('private-code-display').classList.add('hidden');
+            }
+        }
+
+        function leaveRoom() {
+            socket.emit("RemoteEvent", { type: "leave_room", data: { roomId: currentRoom.id, clientId: myClientId } });
+            document.getElementById('modal-waiting').classList.add('hidden');
+            document.getElementById('modal-menu').classList.remove('hidden');
+            currentRoom = null;
+        }
+
+        function copyCode() {
+            navigator.clipboard.writeText(currentRoom.id);
+            showToast("Copied ID to clipboard!");
+        }
+
+        // GAME LOGIC & UI
+        function initGameUI(data) {
+            document.getElementById('modal-waiting').classList.add('hidden');
+            document.getElementById('game-screen').classList.remove('hidden');
+            document.getElementById('chat-toggle').classList.remove('hidden');
             
-            // Build 7 Back Cards initially
+            // Anim Dealing
+            const handEl = document.getElementById('my-hand');
+            handEl.innerHTML = '';
             for (let i = 0; i < 7; i++) {
-                const card = document.createElement('div');
-                card.className = 'card back';
-                card.innerHTML = `<div class="card-inner">UNO</div>`;
-                handContainer.appendChild(card);
+                const c = document.createElement('div');
+                c.className = 'card card-back';
+                handEl.appendChild(c);
             }
 
-            // Flip after 0.5 seconds
             setTimeout(() => {
-                gameState = initialState;
-                renderGameBoard();
+                updateGameState(data);
             }, 500);
         }
 
-        // Render Match Board Interface
-        function renderGameBoard() {
-            if (!gameState) return;
-
-            // Render Opponents
-            const oppContainer = document.getElementById('opponents-list');
-            oppContainer.innerHTML = '';
-            gameState.players.forEach((p, idx) => {
-                if (p.id !== localPlayer.id) {
-                    const opp = document.createElement('div');
-                    opp.className = `opponent ${gameState.currentTurnIndex === idx ? 'active-turn' : ''}`;
-                    opp.innerHTML = `<div>${p.name}</div><div style="font-size:0.8rem; color:#94a3b8;">Cards: ${p.cardCount}</div>`;
-                    oppContainer.appendChild(opp);
-                }
-            });
-
-            // Render Discard Pile
+        function updateGameState(state) {
+            // Discard
             const discardEl = document.getElementById('discard-pile');
-            const topCard = gameState.discardTop;
-            discardEl.className = `card ${topCard.color}`;
-            document.getElementById('discard-content').innerText = topCard.value;
+            if (state.topCard) {
+                discardEl.className = `card ${state.topCard.color}`;
+                discardEl.innerHTML = `<div class="card-inner">${state.topCard.val}</div>`;
+            }
 
-            // Render Player Hand
-            const handContainer = document.getElementById('player-hand');
-            handContainer.innerHTML = '';
-            
-            const myData = gameState.players.find(p => p.id === localPlayer.id);
-            if (!myData) return;
+            // My Hand
+            const me = state.players.find(p => p.clientId === myClientId);
+            const handEl = document.getElementById('my-hand');
+            handEl.innerHTML = '';
 
-            myData.hand.forEach((card, index) => {
-                const cardEl = document.createElement('div');
-                cardEl.className = `card ${card.color}`;
-                cardEl.innerHTML = `<div class="card-inner">${card.value}</div>`;
-                
-                // Card click event (Attempt to play card)
-                cardEl.addEventListener('click', () => {
-                    if (gameState.players[gameState.currentTurnIndex].id !== localPlayer.id) {
-                        showToast("Not your turn!");
-                        return;
-                    }
-                    if (card.color === 'wild') {
-                        pendingWildCardIndex = index;
-                        document.getElementById('color-picker').style.display = 'flex';
-                    } else {
-                        playCard(index, null);
-                    }
+            const isMyTurn = state.turnClientId === myClientId;
+            document.getElementById('turn-display').classList.toggle('hidden', !isMyTurn);
+
+            if (me) {
+                me.hand.forEach((card, idx) => {
+                    const c = document.createElement('div');
+                    let playable = isMyTurn && canPlayCard(card, state.topCard);
+                    c.className = `card ${card.color} ${playable ? 'can-play' : ''}`;
+                    c.innerHTML = `<div class="card-inner">${card.val}</div>`;
+                    c.onclick = () => { if (isMyTurn) playCard(idx); };
+                    handEl.appendChild(c);
                 });
 
-                handContainer.appendChild(cardEl);
+                // Uno Button
+                const unoBtn = document.getElementById('uno-btn');
+                unoBtn.classList.toggle('hidden', me.hand.length !== 2);
+
+                // Skip Button
+                const skipBtn = document.getElementById('skip-btn');
+                skipBtn.classList.toggle('hidden', !(isMyTurn && state.hasDrawn));
+            }
+
+            // Render Opponents
+            const oppContainer = document.getElementById('opponents-container');
+            oppContainer.innerHTML = '';
+            state.players.filter(p => p.clientId !== myClientId).forEach(p => {
+                const pDiv = document.createElement('div');
+                pDiv.style.textAlign = 'center';
+                pDiv.innerHTML = `
+                    <div style="font-weight:bold; margin-bottom:5px;">${p.username} ${state.turnClientId === p.clientId ? '✏️' : ''}</div>
+                    <div style="display:flex; gap:-20px;">
+                        ${Array(p.cardCount).fill(0).map(() => `<div class="card card-back" style="width:40px; height:60px; font-size:0.5rem;"></div>`).join('')}
+                    </div>
+                `;
+                oppContainer.appendChild(pDiv);
             });
         }
 
-        // Draw card action
-        document.getElementById('draw-deck').addEventListener('click', () => {
-            if (gameState.players[gameState.currentTurnIndex].id !== localPlayer.id) {
-                showToast("Not your turn!");
-                return;
-            }
-            socket.emit("RemoteEvent", {
-                type: "draw_card",
-                data: { roomId: currentRoom.id, playerId: localPlayer.id }
-            });
-        });
-
-        // Wild Card Pick execution
-        document.querySelectorAll('.color-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const chosenColor = e.target.dataset.color;
-                document.getElementById('color-picker').style.display = 'none';
-                if (pendingWildCardIndex !== null) {
-                    playCard(pendingWildCardIndex, chosenColor);
-                    pendingWildCardIndex = null;
-                }
-            });
-        });
-
-        function playCard(index, chosenColor) {
-            socket.emit("RemoteEvent", {
-                type: "play_card",
-                data: { roomId: currentRoom.id, playerId: localPlayer.id, cardIndex: index, chosenColor }
-            });
+        function canPlayCard(card, topCard) {
+            if (!topCard) return true;
+            if (card.color === 'black') return true;
+            return card.color === topCard.color || card.val === topCard.val;
         }
 
-        document.getElementById('uno-call-btn').addEventListener('click', () => {
-            socket.emit("RemoteEvent", {
-                type: "call_uno",
-                data: { roomId: currentRoom.id, playerId: localPlayer.id }
-            });
-            showToast("You called UNO!");
-        });
+        function playCard(index) {
+            socket.emit("RemoteEvent", { type: "play_card", data: { roomId: currentRoom.id, clientId: myClientId, cardIndex: index } });
+        }
 
-        // Chat UI System Logic
-        const chatWindow = document.getElementById('chat-window');
-        const chatBadge = document.getElementById('chat-badge');
+        function drawCard() {
+            socket.emit("RemoteEvent", { type: "draw_card", data: { roomId: currentRoom.id, clientId: myClientId } });
+        }
 
-        document.getElementById('chat-toggle-btn').addEventListener('click', () => {
-            chatWindow.classList.toggle('open');
-            if (chatWindow.classList.contains('open')) {
-                chatBadge.style.display = 'none';
+        function passTurn() {
+            socket.emit("RemoteEvent", { type: "pass_turn", data: { roomId: currentRoom.id, clientId: myClientId } });
+        }
+
+        function pressUno() {
+            socket.emit("RemoteEvent", { type: "say_uno", data: { roomId: currentRoom.id, clientId: myClientId } });
+            showToast("UNO Called!");
+        }
+
+        function showCardFx(data) {
+            if (data.clientId === myClientId) {
+                const fx = document.createElement('div');
+                fx.className = 'floating-cards';
+                fx.innerText = `+${data.count}`;
+                fx.style.left = '50%';
+                fx.style.top = '60%';
+                document.body.appendChild(fx);
+                setTimeout(() => fx.remove(), 1200);
             }
-        });
+        }
 
-        document.getElementById('send-chat-btn').addEventListener('click', sendChatMessage);
-        document.getElementById('chat-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendChatMessage();
-        });
+        // CHAT SYSTEM
+        function toggleChat() {
+            isChatOpen = !isChatOpen;
+            document.getElementById('chat-window').classList.toggle('hidden', !isChatOpen);
+            document.getElementById('unread-dot').classList.add('hidden');
+        }
 
         function sendChatMessage() {
             const input = document.getElementById('chat-input');
-            const text = input.value.trim();
+            const text = input.value;
+            if (!text.trim()) return;
 
-            if (!text) return;
+            socket.emit("RemoteEvent", { type: "send_chat", data: { roomId: currentRoom.id, clientId: myClientId, text } });
+            input.value = '';
+            handleTyping(true);
+        }
 
-            const now = Date.now();
-            if (now - lastMessageTime < 500) {
-                showToast("Message cooldown! Please wait 0.5s.");
+        function receiveChatMessage(msg) {
+            const container = document.getElementById('chat-messages');
+            const m = document.createElement('div');
+            m.className = 'chat-msg';
+            m.innerHTML = `<b style="color:#facc15">${msg.user}:</b> ${msg.text}`;
+            container.appendChild(m);
+            container.scrollTop = container.scrollHeight;
+
+            if (!isChatOpen) {
+                document.getElementById('unread-dot').classList.remove('hidden');
+            }
+        }
+
+        function handleTyping(stop = false) {
+            if (stop) {
+                clearTimeout(typingTimeout);
+                isTypingSent = false;
+                socket.emit("RemoteEvent", { type: "typing_status", data: { roomId: currentRoom.id, username: myUsername, isTyping: false } });
                 return;
             }
-            lastMessageTime = now;
 
-            socket.emit("RemoteEvent", {
-                type: "send_chat",
-                data: { roomId: currentRoom.id, playerId: localPlayer.id, name: localPlayer.name, text }
-            });
+            if (!isTypingSent) {
+                isTypingSent = true;
+                socket.emit("RemoteEvent", { type: "typing_status", data: { roomId: currentRoom.id, username: myUsername, isTyping: true } });
+            }
 
-            input.value = '';
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                isTypingSent = false;
+                socket.emit("RemoteEvent", { type: "typing_status", data: { roomId: currentRoom.id, username: myUsername, isTyping: false } });
+            }, 3000);
         }
 
-        function receiveChatMessage(data) {
-            appendChatMessage(data);
-            if (!chatWindow.classList.contains('open')) {
-                chatBadge.style.display = 'block';
+        function updateTypingDisplay(typings) {
+            const el = document.getElementById('chat-typing');
+            if (typings.length === 0) {
+                el.innerText = '';
+            } else if (typings.length === 1) {
+                el.innerText = `${typings[0]} is typing...`;
+            } else {
+                const str = typings.join(', ') + ' are typing...';
+                el.innerText = str.length > 25 ? "Several people are typing..." : str;
             }
         }
 
-        function appendChatMessage({ sender, text, isSystem }) {
-            const container = document.getElementById('chat-messages');
-            const msgEl = document.createElement('div');
-            msgEl.className = `chat-msg ${isSystem ? 'system' : ''}`;
-            msgEl.innerText = isSystem ? text : `${sender}: ${text}`;
-            container.appendChild(msgEl);
-            container.scrollTop = container.scrollHeight;
+        function showToast(text) {
+            const t = document.createElement('div');
+            t.className = 'toast';
+            t.innerText = text;
+            document.getElementById('toast-container').appendChild(t);
+            setTimeout(() => t.remove(), 3000);
         }
     </script>
 </body>
