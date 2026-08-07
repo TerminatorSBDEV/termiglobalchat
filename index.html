@@ -1,920 +1,960 @@
+<!-- index.html - UNO! Client App -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>EzBridge | Global Chat Room</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>UNO! Online</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         :root {
-            --bg: #09090b;
-            --panel: #121214;
-            --border: #222226;
-            --accent: #00ff88;
-            --accent-dim: rgba(0, 255, 136, 0.15);
-            --blue: #58a6ff;
-            --error: #ff7b72;
-            --text: #f4f4f5;
+            --uno-red: #ed1c24;
+            --uno-yellow: #ffde00;
+            --uno-green: #00a651;
+            --uno-blue: #00adef;
+            --uno-dark: #0f172a;
+            --uno-card-bg: #1e293b;
         }
 
-        body, html {
-            margin: 0; padding: 0; 
-            width: 100vw;
-            height: 100dvh; 
-            background-color: var(--bg); color: var(--text);
-            font-family: 'Segoe UI', system-ui, sans-serif;
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            font-family: 'Arial Black', Impact, sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle, #1e1b4b 0%, #0f172a 100%);
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
+        }
+
+        /* Screens Container */
+        .screen {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+            padding: 20px;
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        /* Card Visuals */
+        .card {
+            width: 80px;
+            height: 120px;
+            border-radius: 10px;
+            background: #fff;
+            border: 4px solid #fff;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s ease;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .card-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            color: white;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+            position: relative;
             overflow: hidden;
         }
 
-        /* Telas de Bloqueio / Overlay */
-        .overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.95);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 2000; transition: 0.3s;
+        .card-inner::before {
+            content: '';
+            position: absolute;
+            width: 140%;
+            height: 70%;
+            background: rgba(255,255,255,0.2);
+            transform: rotate(-30deg);
+            border-radius: 50%;
         }
 
-        .card {
-            background: var(--panel); border: 1px solid var(--border); padding: 30px;
-            border-radius: 12px; width: 90%; max-width: 450px; text-align: center;
-            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+        .card.back {
+            background: #000;
+            border: 4px solid #fff;
         }
 
-        #ban-screen {
-            background: #1a0508; border: 2px solid var(--error);
-            box-shadow: 0 0 30px rgba(255, 123, 114, 0.2);
+        .card.back .card-inner {
+            background: radial-gradient(circle, #ed1c24 0%, #7f1d1d 100%);
+            font-size: 1.2rem;
+            color: #ffde00;
+            font-style: italic;
+            transform: rotate(-15deg);
         }
 
-        /* Layout do Chat Adaptativo e Centralizado */
-        .chat-layout {
+        .card.red .card-inner { background: var(--uno-red); }
+        .card.yellow .card-inner { background: var(--uno-yellow); }
+        .card.green .card-inner { background: var(--uno-green); }
+        .card.blue .card-inner { background: var(--uno-blue); }
+        .card.wild .card-inner { background: linear-gradient(45deg, var(--uno-red), var(--uno-yellow), var(--uno-green), var(--uno-blue)); }
+
+        /* Dialog UI Components */
+        .panel {
+            background: rgba(30, 41, 59, 0.95);
+            border: 4px solid #3b82f6;
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.4);
+            text-align: center;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            color: #ffde00;
+            text-shadow: 3px 3px 0 #ed1c24;
+            letter-spacing: 2px;
+        }
+
+        p {
+            font-size: 1rem;
+            margin-bottom: 20px;
+            color: #cbd5e1;
+            font-family: sans-serif;
+            font-weight: normal;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px 20px;
+            border-radius: 10px;
+            border: 2px solid #475569;
+            background: #0f172a;
+            color: #fff;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+            outline: none;
+            text-align: center;
+        }
+
+        input[type="text"]:focus {
+            border-color: #3b82f6;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+            background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
+            cursor: pointer;
+            box-shadow: 0 4px 0 #166534;
+            transition: transform 0.1s, box-shadow 0.1s;
+            margin-bottom: 10px;
+        }
+
+        .btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #166534;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            box-shadow: 0 4px 0 #1e40af;
+        }
+
+        .btn-secondary:active {
+            box-shadow: 0 0 0 #1e40af;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 4px 0 #991b1b;
+        }
+
+        .btn-danger:active {
+            box-shadow: 0 0 0 #991b1b;
+        }
+
+        /* Room Configuration Options */
+        .option-group {
             display: flex;
-            flex-direction: column;
-            width: 100vw;
-            height: 100dvh; 
-            max-width: 800px; 
-            border-right: 1px solid var(--border);
-            border-left: 1px solid var(--border);
-            background: var(--panel);
-            position: relative;
-            box-sizing: border-box;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
         }
 
-        @media (max-width: 768px) {
-            .chat-layout {
-                max-width: 100vw;
-                border-right: none;
-                border-left: none;
-            }
+        .opt-btn {
+            flex: 1;
+            padding: 10px;
+            background: #0f172a;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1rem;
         }
 
-        .chat-header {
-            padding: 15px;
-            padding-top: calc(15px + env(safe-area-inset-top)); 
-            border-bottom: 1px solid var(--border);
+        .opt-btn.selected {
+            border-color: #ffde00;
+            background: #1e3a8a;
+            color: #ffde00;
+        }
+
+        /* Servers List */
+        .server-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 2px solid #334155;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            background: #0f172a;
+        }
+
+        .server-item {
+            padding: 12px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: #09090b;
+            border-bottom: 1px solid #1e293b;
+            cursor: pointer;
         }
 
-        .status-dot {
-            width: 8px; height: 8px; border-radius: 50%; background: var(--error);
+        .server-item:hover {
+            background: #1e293b;
         }
-        .status-dot.online {
-            background: var(--accent); box-shadow: 0 0 8px var(--accent);
+
+        /* Match UI Layout */
+        #match-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+        }
+
+        .opponents-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .opponent {
+            background: rgba(15, 23, 42, 0.8);
+            padding: 10px 15px;
+            border-radius: 12px;
+            border: 2px solid #334155;
+            text-align: center;
+        }
+
+        .opponent.active-turn {
+            border-color: #ffde00;
+            box-shadow: 0 0 15px rgba(255, 222, 0, 0.5);
+        }
+
+        .center-board {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .hand-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            width: 100%;
+            max-width: 900px;
+            height: 150px;
+            position: relative;
+        }
+
+        .hand-cards {
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* Hover slide & dimming mechanics */
+        .hand-cards:hover .card {
+            filter: brightness(0.8);
+        }
+
+        .hand-cards .card:hover {
+            filter: brightness(1) !important;
+            transform: translateY(-25px) scale(1.1) !important;
+            z-index: 100 !important;
+        }
+
+        /* Chat Controls & Floating Window */
+        .chat-btn-container {
+            position: absolute;
+            bottom: 10px;
+            left: 20px;
+        }
+
+        .chat-toggle {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            position: relative;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .chat-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 14px;
+            height: 14px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            display: none;
+        }
+
+        .chat-window {
+            position: absolute;
+            bottom: 70px;
+            left: 20px;
+            width: 300px;
+            height: 350px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            z-index: 200;
+        }
+
+        .chat-window.open {
+            display: flex;
         }
 
         .chat-messages {
-            flex-grow: 1; overflow-y: auto; padding: 20px;
-            display: flex; flex-direction: column; gap: 15px;
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: sans-serif;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        /* Elementos da Mensagem com PFP */
-        .msg-container {
-            display: flex; gap: 10px; align-items: flex-start; max-width: 85%;
-        }
-        .msg-container.me { align-self: flex-end; flex-direction: row-reverse; }
-        .msg-container.other { align-self: flex-start; }
-
-        .pfp-avatar {
-            width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
-            border: 1px solid var(--border); background: #222;
+        .chat-msg {
+            background: #1e293b;
+            padding: 6px 10px;
+            border-radius: 6px;
+            word-break: break-word;
         }
 
-        .msg-bubble {
-            padding: 10px 14px; border-radius: 10px;
-            font-size: 0.95rem; line-height: 1.45; word-wrap: break-word;
-            border: 1px solid var(--border); background: #16161a;
-            position: relative; transition: opacity 0.2s;
+        .chat-msg.system {
+            background: #991b1b;
+            color: #fca5a5;
+            font-style: italic;
         }
 
-        .msg-bubble.pending { opacity: 0.5; } 
-        .msg-bubble.sent { opacity: 1; } 
-
-        .msg-container.me .msg-bubble {
-            background: #152219; border-color: var(--accent-dim);
-            border-top-right-radius: 2px;
-        }
-        .msg-container.other .msg-bubble {
-            border-top-left-radius: 2px;
+        .chat-input-area {
+            display: flex;
+            padding: 8px;
+            background: #0f172a;
+            gap: 5px;
         }
 
-        .msg-bubble .sender-name {
-            font-size: 0.75rem; font-weight: bold; color: var(--blue); margin-bottom: 4px;
-        }
-        .msg-container.me .sender-name { color: var(--accent); }
-
-        /* Estilo Matrix para o Owner */
-        .msg-container.owner-msg .msg-bubble {
-            background: #000000 !important;
-            color: #00ff66 !important;
-            border: 1px solid #00ff66 !important;
-            font-family: 'Courier New', Courier, monospace !important;
-            text-shadow: 0 0 5px #00ff66;
-            box-shadow: 0 0 8px rgba(0, 255, 102, 0.3);
-        }
-        .msg-container.owner-msg .sender-name { color: #00ff66 !important; }
-
-        .system-msg {
-            text-align: center; font-size: 0.8rem; color: #71717a;
-            margin: 10px 0; font-family: monospace;
+        .chat-input-area input {
+            flex: 1;
+            margin-bottom: 0;
+            padding: 8px;
+            font-size: 0.9rem;
+            font-family: sans-serif;
         }
 
-        #typing-indicator {
-            padding: 5px 20px; font-size: 0.8rem; color: var(--accent);
-            font-style: italic; min-height: 20px; background: #09090b;
+        .chat-input-area button {
+            width: auto;
+            padding: 8px 15px;
+            margin-bottom: 0;
+            font-size: 0.9rem;
         }
 
-        .input-bar {
-            padding: 15px;
-            padding-bottom: calc(15px + env(safe-area-inset-bottom)); 
-            border-top: 1px solid var(--border);
-            background: #09090b; display: flex; gap: 8px; align-items: center;
+        /* Notifications */
+        .notification-toast {
+            position: absolute;
+            top: 20px;
+            background: #ef4444;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-family: sans-serif;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            display: none;
+            z-index: 1000;
+            animation: fadeIn 0.2s ease;
         }
 
-        input {
-            flex-grow: 1; background: #020204; border: 1px solid var(--border);
-            color: white; padding: 12px; border-radius: 8px; outline: none;
-            font-size: 0.95rem; font-family: monospace;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        input:focus { border-color: var(--blue); }
 
-        .btn {
-            background: var(--accent); color: black; border: none; padding: 12px 20px;
-            border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s;
+        /* Color Picker Modal */
+        .color-picker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
         }
-        .btn:hover { background: #00cc6a; }
 
-        .icon-btn {
-            background: transparent; border: 1px solid var(--border);
-            color: var(--text); padding: 10px; border-radius: 8px; cursor: pointer;
-            font-size: 1.2rem; display: flex; align-items: center; justify-content: center;
-            width: 42px; height: 42px; box-sizing: border-box;
+        .color-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 200px;
+            height: 200px;
         }
-        .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-        .setup-row { display: flex; gap: 10px; margin-top: 5px; }
-        .setup-row input { text-align: left; }
+        .color-btn {
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .uno-call-btn {
+            position: absolute;
+            right: 20px;
+            bottom: 20px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ed1c24 0%, #7f1d1d 100%);
+            border: 4px solid #ffde00;
+            color: #ffde00;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(237, 28, 36, 0.6);
+        }
     </style>
 </head>
 <body>
 
-    <!-- Passo 0: Buffering Inicial -->
-    <div id="overlay-sync" class="overlay">
-        <div class="card" style="border-color: var(--border);">
-            <h3 style="margin-bottom: 20px; color: var(--blue);">Synchronizing Secure Connection...</h3>
-            <div id="sync-subtext" style="font-size:0.8rem; color:#71717a; font-family: monospace;">Syncing unique UserID with EzBridge.</div>
+    <!-- Notification Toast -->
+    <div id="toast" class="notification-toast"></div>
+
+    <!-- Name Screen -->
+    <div id="name-screen" class="screen active">
+        <div class="panel">
+            <h1>UNO!</h1>
+            <p>Enter your display name to start playing online</p>
+            <input type="text" id="username-input" placeholder="Name (3-15 chars)" maxlength="15">
+            <button class="btn" id="save-name-btn">PLAY NOW</button>
         </div>
     </div>
 
-    <!-- Tela de Banimento Físico -->
-    <div id="overlay-banned" class="overlay" style="display:none;">
-        <div class="card" id="ban-screen">
-            <h1 style="color: var(--error); text-shadow: 0 0 10px rgba(255, 123, 114, 0.4);">⚠️ YOUR SESSION HAS BEEN BANNED</h1>
-            <p style="font-family: monospace; font-size: 0.85rem; color: #a1a1aa; line-height: 1.5; margin: 20px 0;">
-                R: Ban enforcement.<br>
-                You are permanently disconnected from this global chat room.
-            </p>
+    <!-- Main Menu Screen -->
+    <div id="menu-screen" class="screen">
+        <div class="panel">
+            <h1>UNO!</h1>
+            <p>Welcome to UNO! Here you can play with your friends!</p>
+            <p>To start, please choose one of the options down here.</p>
+            <button class="btn" id="nav-create-btn">1 - Create room</button>
+            <button class="btn btn-secondary" id="nav-join-btn">2 - Join room</button>
         </div>
     </div>
 
-    <!-- Modal do Perfil -->
-    <div id="modal-profile" class="overlay" style="display:none;">
-        <div class="card" style="max-width: 380px;">
-            <h3>Update Profile</h3>
-            <div class="setup-row" style="flex-direction: column; text-align: left; gap: 10px; margin: 15px 0;">
-                <label style="font-size: 0.75rem; color: #888;">YOUR AVATAR (PFP)</label>
-                <button class="btn btn-secondary" type="button" onclick="triggerPfpUpload()">[Click to Choose Image]</button>
-                <input type="file" id="pfp-input" accept="image/*" style="display:none;" onchange="handlePfpSelect(this)">
-                
-                <div style="display:flex; justify-content:center; margin: 5px 0;">
-                    <img id="profile-preview-pfp" class="pfp-avatar" style="width:60px; height:60px;" src="">
-                </div>
-
-                <label style="font-size: 0.75rem; color: #888;">YOUR NAME (MAX 20 CHARS)</label>
-                <input type="text" id="profile-name-input" placeholder="Leave blank for your ID" maxlength="20">
-            </div>
-            <button class="btn btn-blue" type="button" onclick="updateProfileSubmit()">[UPDATE PROFILE]</button>
-            <button class="btn btn-secondary" type="button" onclick="closeProfileModal()">Cancel</button>
-        </div>
-    </div>
-
-    <!-- Layout do Chat Room -->
-    <div class="chat-layout">
-        <div class="chat-header">
-            <div style="display:flex; flex-direction:column; gap:4px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div id="status-dot" class="status-dot"></div>
-                    <span style="font-weight: bold; font-size: 0.95rem;" id="my-id-display">Connecting...</span>
-                </div>
-                <div style="font-size:0.75rem; color:#888;">people on this site: <span id="site-users-count" style="color:var(--blue); font-weight:bold;">0</span></div>
-            </div>
-            <button class="btn" style="padding:6px 12px; font-size:0.75rem; width:auto;" type="button" onclick="openProfileModal()">Change Profile</button>
-        </div>
-
-        <div id="chat-messages" class="chat-messages">
-            <div class="system-msg">[System] Conectado ao chat global em tempo real.</div>
-        </div>
-
-        <div id="typing-indicator"></div>
-
-        <div class="input-bar">
-            <button class="icon-btn" type="button" onclick="triggerVideoUpload()">🎥</button>
-            <input type="file" id="video-input" accept="video/*,image/gif" style="display:none;" onchange="handleMediaSelect(this, 'video')">
-
-            <button class="icon-btn" type="button" onclick="triggerImageUpload()">📷</button>
-            <input type="file" id="image-input" accept="image/*" style="display:none;" onchange="handleImageSend(this)">
+    <!-- Create Room Config Screen -->
+    <div id="create-screen" class="screen">
+        <div class="panel">
+            <h1>CREATE ROOM</h1>
+            <input type="text" id="room-name-input" placeholder="Room name (1-30 chars)" maxlength="30">
             
-            <button class="icon-btn" type="button" onclick="triggerAudioUpload()">🎶</button>
-            <input type="file" id="audio-input" accept="audio/*" style="display:none;" onchange="handleMediaSelect(this, 'audio')">
+            <p style="margin-bottom:8px">Max Players:</p>
+            <div class="option-group" id="max-players-group">
+                <button class="opt-btn selected" data-val="2">2</button>
+                <button class="opt-btn" data-val="3">3</button>
+                <button class="opt-btn" data-val="4">4</button>
+            </div>
 
-            <input type="text" id="chat-input" placeholder="Type a message or command..." autocomplete="off" oninput="handleTyping()">
-            <button class="btn" type="button" onclick="sendMsg()">Send</button>
+            <p style="margin-bottom:8px">Visibility:</p>
+            <div class="option-group" id="visibility-group">
+                <button class="opt-btn selected" data-val="public">Public</button>
+                <button class="opt-btn" data-val="private">Private</button>
+            </div>
+
+            <button class="btn" id="confirm-create-btn">CREATE</button>
+            <button class="btn btn-danger" id="back-create-btn">CANCEL</button>
         </div>
     </div>
 
-<script>
-    // --- CREDENCIAIS ---
-    const TUNNEL = "https://buck-forwarding-only-oxide.trycloudflare.com";
-    const VIRTUAL_SERVER_KEY = "aa59ab3892";
-    const OWNER_ID = "7adf5e625e7dbea9";
+    <!-- Waiting Lobby Screen -->
+    <div id="lobby-screen" class="screen">
+        <div class="panel">
+            <h1 id="lobby-title">Waiting for people...</h1>
+            <div id="private-id-display" style="display:none; margin-bottom: 15px;">
+                <p style="margin-bottom: 5px;">PRIVATE ID:</p>
+                <span id="private-code" style="font-size: 1.8rem; color: #ffde00; letter-spacing: 4px;">======</span>
+                <button class="btn btn-secondary" id="copy-code-btn" style="padding: 5px 10px; font-size: 0.8rem; width: auto; margin-left: 10px;">COPY</button>
+            </div>
+            <p id="player-count-display">0/0</p>
+            <button class="btn btn-danger" id="cancel-lobby-btn">Cancel</button>
+        </div>
+    </div>
 
-    let myId = getCookie("eb_owner_id") || "";
-    let socket = io(TUNNEL, { auth: { token: "default_key" }, transports: ['websocket'] });
+    <!-- Join Room Screen -->
+    <div id="join-screen" class="screen">
+        <div class="panel">
+            <h1>SERVERS</h1>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.9rem;">Public Servers:</span>
+                <button id="refresh-servers-btn" class="btn btn-secondary" style="width:auto; padding: 4px 10px; font-size: 0.8rem;">Refresh</button>
+            </div>
+            
+            <div id="servers-container" class="server-list">
+                <!-- Dynamically populated -->
+            </div>
 
-    let banList = [];
-    let chatHistory = [];
-    let isConnected = false;
-    
-    // Perfil do Usuário
-    let myProfile = { name: "", avatar: "" };
+            <p style="margin: 15px 0 5px 0;">OR join with your partner's private ID!</p>
+            <div style="display:flex; gap:10px;">
+                <input type="text" id="private-id-input" placeholder="6-Letter ID" maxlength="6" style="text-transform:uppercase; margin-bottom:0;">
+                <button class="btn btn-secondary" id="join-private-btn" style="width: auto; padding: 0 20px;">Join</button>
+            </div>
+            <button class="btn btn-danger" id="back-join-btn" style="margin-top: 15px;">BACK</button>
+        </div>
+    </div>
 
-    // Estados do digitador
-    let isTyping = false;
-    let typingTimeout = null;
-    const activeTypers = new Set();
+    <!-- Match Screen -->
+    <div id="match-screen" class="screen">
+        <!-- Opponents display -->
+        <div class="opponents-container" id="opponents-list"></div>
 
-    // Configurações do Chunked Upload (Vídeo/Áudio/Histórico)
-    const CHUNK_SIZE = 100 * 1024; 
-    const pendingFileChunks = {}; 
-    const activeUploads = {}; 
+        <!-- Center Playing Field -->
+        <div class="center-board">
+            <!-- Draw Deck -->
+            <div class="card back" id="draw-deck">
+                <div class="card-inner">UNO</div>
+            </div>
+            <!-- Discard Pile -->
+            <div class="card" id="discard-pile">
+                <div class="card-inner" id="discard-content"></div>
+            </div>
+        </div>
 
-    // Buffers para reconstrução de histórico P2P fragmentado (chunks de 100KB)
-    const pendingHistoryChunks = {};
+        <!-- Local Player Hand -->
+        <div class="hand-container">
+            <div class="hand-cards" id="player-hand"></div>
+        </div>
 
-    // Coordenadores do P2P Latency Sync
-    let potentialSyncHosts = [];
-    let pingCheckTimeout = null;
+        <!-- Chat Trigger & Container -->
+        <div class="chat-btn-container">
+            <button class="chat-toggle" id="chat-toggle-btn">
+                💬
+                <div class="chat-badge" id="chat-badge"></div>
+            </button>
+        </div>
 
-    // Carrega perfil salvo localmente
-    const savedProfile = localStorage.getItem('eb_user_profile');
-    if (savedProfile) {
-        try { myProfile = JSON.parse(savedProfile); } catch(e) {}
-    }
+        <div class="chat-window" id="chat-window">
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Type a message..." maxlength="150">
+                <button class="btn" id="send-chat-btn">Send</button>
+            </div>
+        </div>
 
-    // --- CONEXÃO E IDENTIFICAÇÃO ---
-    socket.on('connect', () => {
-        socket.emit('eb_sync_session', { ownerId: myId });
-    });
+        <button class="uno-call-btn" id="uno-call-btn">UNO!</button>
+    </div>
 
-    socket.on('session_verified', (data) => {
-        myId = data.ownerId;
-        setCookie("eb_owner_id", myId, 365);
+    <!-- Wild Color Picker Modal -->
+    <div class="color-picker" id="color-picker">
+        <div class="color-grid">
+            <button class="color-btn" style="background:var(--uno-red)" data-color="red"></button>
+            <button class="color-btn" style="background:var(--uno-yellow)" data-color="yellow"></button>
+            <button class="color-btn" style="background:var(--uno-green)" data-color="green"></button>
+            <button class="color-btn" style="background:var(--uno-blue)" data-color="blue"></button>
+        </div>
+    </div>
+
+    <script>
+        // Server Connection Config
+        const LINK = "https://abs-elements-omissions-cholesterol.trycloudflare.com";
+        const KEY = "TuoB6PfnWN";
         
-        document.getElementById('my-id-display').innerText = `ID: ${myId.substring(0, 10)}`;
-        document.getElementById('status-dot').classList.add('online');
+        // Socket Client Initialization
+        const socket = io(LINK, { auth: { token: "default_key" } });
 
-        socket.emit('join_virtual_server', { key: VIRTUAL_SERVER_KEY });
-    });
+        // Local State Management
+        let localPlayer = {
+            id: Math.random().toString(36).substring(2, 9),
+            name: localStorage.getItem("uno_username") || ""
+        };
 
-    socket.on('joined_successfully', () => {
-        isConnected = true;
-        
-        const subtext = document.getElementById('sync-subtext');
-        subtext.innerText = "Querying fastest active peer for chat history...";
+        let currentRoom = null;
+        let gameState = null;
+        let lastMessageTime = 0;
+        let pendingWildCardIndex = null;
 
-        potentialSyncHosts = [];
-        socket.emit('RemoteEvent', {
-            type: 'sync_ping_request',
-            senderId: myId,
-            timestamp: Date.now(),
-            room: VIRTUAL_SERVER_KEY
+        // UI View Switcher Helper
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function showToast(text, duration = 3000) {
+            const toast = document.getElementById('toast');
+            toast.innerText = text;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, duration);
+        }
+
+        // Socket Event Listeners
+        socket.on("connect", () => {
+            socket.emit("join_virtual_server", { key: KEY });
         });
 
-        pingCheckTimeout = setTimeout(() => {
-            document.getElementById('overlay-sync').style.display = 'none';
-            
-            if (potentialSyncHosts.length > 0) {
-                potentialSyncHosts.sort((a, b) => a.latency - b.latency);
-                const bestHost = potentialSyncHosts[0].id;
-                
-                subtext.innerText = `Downloading history: ${bestHost.substring(0, 5)}...`;
-                
-                socket.emit('RemoteEvent', {
-                    type: 'history_request_direct',
-                    targetId: bestHost,
-                    senderId: myId,
-                    room: VIRTUAL_SERVER_KEY
-                });
+        socket.on("joined_successfully", () => {
+            if (localPlayer.name) {
+                showScreen("menu-screen");
             } else {
-                document.getElementById('overlay-sync').style.display = 'none';
-                addSystemMessage("Nenhum peer ativo encontrado. Iniciando histórico limpo.");
-            }
-        }, 600); 
-
-        // Registra o ID do jogador no ServerScript de forma segura
-        socket.emit('RemoteEvent', {
-            type: 'join_player',
-            data: {
-                userId: myId,
-                profile: myProfile
+                showScreen("name-screen");
             }
         });
 
-        // Loop de monitoramento de usuários online no site (a cada 5s)
-        setInterval(() => {
-            if (isConnected) {
-                socket.emit('eb_heartbeat', { key: VIRTUAL_SERVER_KEY, ownerId: myId });
+        socket.on("RemoteEvent", (pkt) => {
+            const { type, data } = pkt;
+
+            if (type === "room_created" || type === "room_joined") {
+                currentRoom = data;
+                updateLobbyUI();
+                showScreen("lobby-screen");
+            } else if (type === "lobby_update") {
+                currentRoom = data;
+                updateLobbyUI();
+            } else if (type === "public_rooms_list") {
+                renderServerList(data);
+            } else if (type === "join_error") {
+                showToast(data.message, 4000);
+            } else if (type === "game_start_animation") {
+                showScreen("match-screen");
+                animateDealCards(data);
+            } else if (type === "game_state_update") {
+                gameState = data;
+                renderGameBoard();
+            } else if (type === "chat_message") {
+                receiveChatMessage(data);
+            } else if (type === "chat_warning") {
+                appendChatMessage({ sender: "SYSTEM", text: data.message, isSystem: true });
             }
-        }, 5000);
-    });
+        });
 
-    socket.on('eb_heartbeat_response', (data) => {
-        document.getElementById('site-users-count').innerText = data.users;
-    });
-
-    socket.on('join_error', (data) => {
-        alert("Erro de conexão: " + data.error);
-        location.reload();
-    });
-
-    socket.on('connect_error', () => {
-        document.getElementById('status-dot').classList.remove('online');
-        document.getElementById('my-id-display').innerText = "Offline";
-    });
-
-    // --- RECEBIMENTO DE EVENTOS ---
-    socket.on('RemoteEvent', (packet) => {
-        if (!isConnected) return;
-
-        // Trata as respostas do banco físico (Apenas se o ServerScript mandar)
-        if (packet.type === 'storage_response') {
-            const res = packet.result;
-            if (res && res.success === undefined) {
-                if (res.data) {
-                    if (packet.cmd_type === 'ebdata_fetch_bans') {
-                        banList = res.data;
-                        checkMyBanStatus();
-                    }
-                }
+        // Username Handlers
+        document.getElementById('save-name-btn').addEventListener('click', () => {
+            const name = document.getElementById('username-input').value.trim();
+            if (name.length < 3 || name.length > 15) {
+                showToast("Name must be between 3 and 15 characters!");
+                return;
             }
-        }
+            localPlayer.name = name;
+            localStorage.setItem("uno_username", name);
+            showScreen("menu-screen");
+        });
 
-        if (packet.type === 'sync_ping_request') {
-            if (chatHistory.length > 0) {
-                socket.emit('RemoteEvent', {
-                    type: 'sync_ping_response',
-                    targetId: packet.senderId,
-                    senderId: myId,
-                    timestamp: packet.timestamp,
-                    room: VIRTUAL_SERVER_KEY
+        // Menu Navigation
+        document.getElementById('nav-create-btn').addEventListener('click', () => showScreen('create-screen'));
+        document.getElementById('nav-join-btn').addEventListener('click', () => {
+            showScreen('join-screen');
+            refreshServers();
+        });
+        document.getElementById('back-create-btn').addEventListener('click', () => showScreen('menu-screen'));
+        document.getElementById('back-join-btn').addEventListener('click', () => showScreen('menu-screen'));
+
+        // Option Selector Handlers
+        function setupOptionGroups(groupId) {
+            const container = document.getElementById(groupId);
+            container.querySelectorAll('.opt-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    container.querySelectorAll('.opt-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
                 });
-            }
-        }
-
-        if (packet.type === 'sync_ping_response' && packet.targetId === myId) {
-            const latency = Date.now() - packet.timestamp;
-            potentialSyncHosts.push({ id: packet.senderId, latency: latency });
-        }
-
-        if (packet.type === 'history_request_direct' && packet.targetId === myId) {
-            const historyStr = JSON.stringify(chatHistory);
-            const totalChunks = Math.ceil(historyStr.length / CHUNK_SIZE);
-            const syncId = "sync_" + Date.now();
-
-            let index = 0;
-            const sendNextHistoryChunk = () => {
-                if (index < totalChunks) {
-                    const start = index * CHUNK_SIZE;
-                    const end = Math.min(start + CHUNK_SIZE, historyStr.length);
-                    const chunk = historyStr.slice(start, end);
-
-                    socket.emit('RemoteEvent', {
-                        type: 'history_chunk',
-                        targetId: packet.senderId,
-                        index: index,
-                        total: totalChunks,
-                        chunk: chunk,
-                        syncId: syncId,
-                        room: VIRTUAL_SERVER_KEY
-                    });
-                    index++;
-                    setTimeout(sendNextHistoryChunk, 75); 
-                }
-            };
-            sendNextHistoryChunk();
-        }
-
-        if (packet.type === 'history_chunk' && packet.targetId === myId) {
-            const { index, total, chunk, syncId } = packet;
-            if (!pendingHistoryChunks[syncId]) {
-                pendingHistoryChunks[syncId] = Array(total).fill(null);
-                document.getElementById('sync-subtext').innerText = `Downloading history: 0%`;
-            }
-            pendingHistoryChunks[syncId][index] = chunk;
-
-            const received = pendingHistoryChunks[syncId].filter(c => c !== null).length;
-            const pct = Math.floor((received / total) * 100);
-            document.getElementById('sync-subtext').innerText = `Downloading history: ${pct}%`;
-
-            if (received === total) {
-                const fullStr = pendingHistoryChunks[syncId].join('');
-                delete pendingHistoryChunks[syncId];
-                try {
-                    chatHistory = JSON.parse(fullStr);
-                    renderChatHistory();
-                    document.getElementById('overlay-sync').style.display = 'none';
-                    addSystemMessage("Histórico sincronizado com sucesso.");
-                } catch(e) {
-                    addSystemMessage("Falha ao reconstruir histórico.");
-                    document.getElementById('overlay-sync').style.display = 'none';
-                }
-            }
-        }
-
-        // CORREÇÃO: Lê de forma estrita de dentro de packet.data conforme protocolo do ServerScript
-        if (packet.type === 'chat_msg') {
-            const d = packet.data;
-            chatHistory.push({ userId: d.userId, text: d.text, image: d.image, profile: d.profile });
-            limitHistoryAndDOM();
-            appendMessage(d.userId, d.text, d.userId === myId, d.image, null, null, d.profile);
-        }
-
-        if (packet.type === 'chat_media_chunk') {
-            handleIncomingMediaChunk(packet.data);
-        }
-
-        if (packet.type === 'typing_status') {
-            const d = packet.data;
-            if (d.isTyping) {
-                activeTypers.add(d.userId);
-            } else {
-                activeTypers.delete(d.userId);
-            }
-            updateTypingDisplay();
-        }
-
-        if (packet.type === 'ban_broadcast') {
-            const d = packet.data;
-            if (!banList.includes(d.targetId)) banList.push(d.targetId);
-            checkMyBanStatus();
-        }
-
-        if (packet.type === 'unban_broadcast') {
-            const d = packet.data;
-            banList = banList.filter(id => id !== d.targetId);
-        }
-
-        if (packet.type === 'clear_broadcast') {
-            chatHistory = [];
-            document.getElementById('chat-messages').innerHTML = `<div class="system-msg">[System] O histórico foi limpo pelo moderador.</div>`;
-        }
-    });
-
-    function limitHistoryAndDOM() {
-        if (chatHistory.length > 50) chatHistory.shift();
-        const container = document.getElementById('chat-messages');
-        while (container.children.length > 50) {
-            container.removeChild(container.firstChild);
-        }
-    }
-
-    // --- LOGICA DE DIGITAÇÃO ---
-    function handleTyping() {
-        if (!isTyping) {
-            isTyping = true;
-            socket.emit('RemoteEvent', {
-                type: 'typing_status',
-                data: { userId: myId, isTyping: true }
             });
         }
-        
-        clearTimeout(typingTimeout);
-        typingTimeout = setTimeout(() => {
-            isTyping = false;
-            socket.emit('RemoteEvent', {
-                type: 'typing_status',
-                data: { userId: myId, isTyping: false }
+        setupOptionGroups('max-players-group');
+        setupOptionGroups('visibility-group');
+
+        // Create Room Event Trigger
+        document.getElementById('confirm-create-btn').addEventListener('click', () => {
+            const name = document.getElementById('room-name-input').value.trim();
+            if (name.length < 1 || name.length > 30) {
+                showToast("Room name must be between 1 and 30 characters!");
+                return;
+            }
+            const maxPlayers = parseInt(document.getElementById('max-players-group').querySelector('.selected').dataset.val);
+            const visibility = document.getElementById('visibility-group').querySelector('.selected').dataset.val;
+
+            socket.emit("RemoteEvent", {
+                type: "create_room",
+                data: { roomName: name, maxPlayers, visibility, host: localPlayer }
             });
-        }, 3000);
-    }
-
-    function updateTypingDisplay() {
-        const indicator = document.getElementById('typing-indicator');
-        const typersArray = Array.from(activeTypers).filter(id => id !== myId);
-        if (typersArray.length > 0) {
-            indicator.innerText = typersArray.map(id => `ID: ${id.substring(0, 10)} is typing...`).join(', ');
-        } else {
-            indicator.innerText = "";
-        }
-    }
-
-    // --- CONFIGURAÇÃO E UPDATE DO PERFIL ---
-    function openProfileModal() {
-        document.getElementById('modal-profile').style.display = 'flex';
-        document.getElementById('profile-name-input').value = myProfile.name;
-        document.getElementById('profile-preview-pfp').src = myProfile.avatar || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>";
-    }
-    function closeProfileModal() { document.getElementById('modal-profile').style.display = 'none'; }
-    function triggerPfpUpload() { document.getElementById('pfp-input').click(); }
-    
-    function handlePfpSelect(input) {
-        if (input.files.length === 0) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            myProfile.avatar = e.target.result;
-            document.getElementById('profile-preview-pfp').src = e.target.result;
-        };
-        reader.readAsDataURL(input.files[0]);
-    }
-
-    function updateProfileSubmit() {
-        myProfile.name = document.getElementById('profile-name-input').value.trim().substring(0, 20);
-        localStorage.setItem('eb_user_profile', JSON.stringify(myProfile));
-        closeProfileModal();
-        addSystemMessage("Seu perfil foi atualizado.");
-        
-        socket.emit('RemoteEvent', {
-            type: 'join_player',
-            data: { userId: myId, profile: myProfile }
         });
-    }
 
-    // --- PROCESSAMENTO E ENVIO EM CHUNKS (ÁUDIO / VÍDEO) ---
-    function triggerVideoUpload() { document.getElementById('video-input').click(); }
-    function triggerAudioUpload() { document.getElementById('audio-input').click(); }
-
-    function handleMediaSelect(input, type) {
-        if (input.files.length === 0) return;
-        const file = input.files[0];
-
-        if (file.size > 10 * 1024 * 1024) {
-            alert("Media files must be under 10MB!");
-            input.value = "";
-            return;
+        function updateLobbyUI() {
+            if (!currentRoom) return;
+            document.getElementById('player-count-display').innerText = `${currentRoom.players.length}/${currentRoom.maxPlayers}`;
+            
+            const privDisplay = document.getElementById('private-id-display');
+            if (currentRoom.visibility === 'private') {
+                privDisplay.style.display = 'block';
+                document.getElementById('private-code').innerText = currentRoom.id;
+            } else {
+                privDisplay.style.display = 'none';
+            }
         }
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Data = e.target.result;
-            const fileId = "media_" + Date.now();
-            
-            const tempBubble = appendMessage(myId, `Uploading ${type}... 0%`, true, null, null, type, myProfile);
-            tempBubble.classList.add('pending'); 
-            activeUploads[fileId] = tempBubble;
+        document.getElementById('cancel-lobby-btn').addEventListener('click', () => {
+            socket.emit("RemoteEvent", { type: "leave_room", data: { roomId: currentRoom.id, playerId: localPlayer.id } });
+            currentRoom = null;
+            showScreen("menu-screen");
+        });
 
-            sendMediaChunks(base64Data, fileId, type);
-            input.value = "";
-        };
-        reader.readAsDataURL(file);
-    }
+        document.getElementById('copy-code-btn').addEventListener('click', () => {
+            navigator.clipboard.writeText(currentRoom.id);
+            showToast("Private ID copied to clipboard!");
+        });
 
-    function sendMediaChunks(fullBase64, fileId, type) {
-        const total = Math.ceil(fullBase64.length / CHUNK_SIZE);
-        let index = 0;
+        // Join Private or Public Rooms
+        function refreshServers() {
+            socket.emit("RemoteEvent", { type: "get_public_rooms" });
+        }
+        document.getElementById('refresh-servers-btn').addEventListener('click', refreshServers);
 
-        function next() {
-            if (index < total) {
-                const start = index * CHUNK_SIZE;
-                const end = Math.min(start + CHUNK_SIZE, fullBase64.length);
-                const chunk = fullBase64.slice(start, end);
-
-                socket.emit('RemoteEvent', {
-                    type: 'chat_media_chunk',
-                    data: {
-                        fileId: fileId,
-                        index: index,
-                        total: total,
-                        data: chunk,
-                        mediaType: type,
-                        userId: myId,
-                        profile: myProfile
-                    }
+        function renderServerList(rooms) {
+            const container = document.getElementById('servers-container');
+            container.innerHTML = '';
+            if (rooms.length === 0) {
+                container.innerHTML = '<div style="padding:15px; color:#64748b;">No public rooms available</div>';
+                return;
+            }
+            rooms.forEach(r => {
+                const item = document.createElement('div');
+                item.className = 'server-item';
+                item.innerHTML = `<span>${r.name}</span><span>${r.players.length}/${r.maxPlayers}</span>`;
+                item.addEventListener('click', () => {
+                    socket.emit("RemoteEvent", { type: "join_room", data: { roomId: r.id, player: localPlayer } });
                 });
+                container.appendChild(item);
+            });
+        }
 
-                const pct = Math.floor((index / total) * 100);
-                if (activeUploads[fileId]) {
-                    activeUploads[fileId].querySelector('.media-content-text').innerText = `Uploading ${type}... ${pct}%`;
+        document.getElementById('join-private-btn').addEventListener('click', () => {
+            const code = document.getElementById('private-id-input').value.trim().toUpperCase();
+            if (code.length !== 6) {
+                showToast("ERROR:\nthis room is currently not avaiable, please try a different ID, Thank you!");
+                return;
+            }
+            socket.emit("RemoteEvent", { type: "join_room", data: { roomId: code, player: localPlayer } });
+        });
+
+        // Dealing Cards Animation
+        function animateDealCards(initialState) {
+            const handContainer = document.getElementById('player-hand');
+            handContainer.innerHTML = '';
+            
+            // Build 7 Back Cards initially
+            for (let i = 0; i < 7; i++) {
+                const card = document.createElement('div');
+                card.className = 'card back';
+                card.innerHTML = `<div class="card-inner">UNO</div>`;
+                handContainer.appendChild(card);
+            }
+
+            // Flip after 0.5 seconds
+            setTimeout(() => {
+                gameState = initialState;
+                renderGameBoard();
+            }, 500);
+        }
+
+        // Render Match Board Interface
+        function renderGameBoard() {
+            if (!gameState) return;
+
+            // Render Opponents
+            const oppContainer = document.getElementById('opponents-list');
+            oppContainer.innerHTML = '';
+            gameState.players.forEach((p, idx) => {
+                if (p.id !== localPlayer.id) {
+                    const opp = document.createElement('div');
+                    opp.className = `opponent ${gameState.currentTurnIndex === idx ? 'active-turn' : ''}`;
+                    opp.innerHTML = `<div>${p.name}</div><div style="font-size:0.8rem; color:#94a3b8;">Cards: ${p.cardCount}</div>`;
+                    oppContainer.appendChild(opp);
                 }
+            });
 
-                index++;
-                setTimeout(next, 75); 
-            } else {
-                const bubble = activeUploads[fileId];
-                if (bubble) {
-                    bubble.classList.remove('pending');
-                    bubble.classList.add('sent'); 
-                    
-                    const container = bubble.querySelector('.media-content-text');
-                    container.innerHTML = "";
-                    if (type === 'video') {
-                        container.innerHTML = `<video src="${fullBase64}" controls style="max-width:100%; max-height:240px; border-radius:8px; display:block;"></video>`;
+            // Render Discard Pile
+            const discardEl = document.getElementById('discard-pile');
+            const topCard = gameState.discardTop;
+            discardEl.className = `card ${topCard.color}`;
+            document.getElementById('discard-content').innerText = topCard.value;
+
+            // Render Player Hand
+            const handContainer = document.getElementById('player-hand');
+            handContainer.innerHTML = '';
+            
+            const myData = gameState.players.find(p => p.id === localPlayer.id);
+            if (!myData) return;
+
+            myData.hand.forEach((card, index) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${card.color}`;
+                cardEl.innerHTML = `<div class="card-inner">${card.value}</div>`;
+                
+                // Card click event (Attempt to play card)
+                cardEl.addEventListener('click', () => {
+                    if (gameState.players[gameState.currentTurnIndex].id !== localPlayer.id) {
+                        showToast("Not your turn!");
+                        return;
+                    }
+                    if (card.color === 'wild') {
+                        pendingWildCardIndex = index;
+                        document.getElementById('color-picker').style.display = 'flex';
                     } else {
-                        container.innerHTML = `<audio src="${fullBase64}" controls style="max-width:100%; display:block;"></audio>`;
+                        playCard(index, null);
                     }
-                }
-                
-                chatHistory.push({ userId: myId, text: "", image: null, mediaBase64: fullBase64, mediaType: type, profile: myProfile });
-                limitHistoryAndDOM();
-                delete activeUploads[fileId];
-            }
-        }
-        next();
-    }
-
-    function handleIncomingMediaChunk(packetData) {
-        const { fileId, index, total, data, mediaType, userId, profile } = packetData;
-
-        if (!pendingFileChunks[fileId]) {
-            pendingFileChunks[fileId] = Array(total).fill(null);
-        }
-
-        pendingFileChunks[fileId][index] = data;
-
-        if (pendingFileChunks[fileId].every(c => c !== null)) {
-            const assembledBase64 = pendingFileChunks[fileId].join('');
-            delete pendingFileChunks[fileId];
-
-            chatHistory.push({ userId, text: "", image: null, mediaBase64: assembledBase64, mediaType, profile });
-            limitHistoryAndDOM();
-
-            appendMessage(userId, "", userId === myId, null, assembledBase64, mediaType, profile);
-        }
-    }
-
-    // --- ENVIAR FOTOS LEVES ---
-    function triggerImageUpload() { document.getElementById('image-input').click(); }
-    
-    function handleImageSend(input) {
-        if (input.files.length === 0) return;
-        const file = input.files[0];
-
-        if (file.size > 2 * 1024 * 1024) {
-            alert("Images sent via camera button must be under 2MB!");
-            input.value = "";
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Img = e.target.result;
-            
-            const tempBubble = appendMessage(myId, "", true, base64Img, null, null, myProfile);
-            tempBubble.classList.add('pending');
-
-            socket.emit('RemoteEvent', {
-                type: 'chat_msg',
-                data: {
-                    userId: myId,
-                    text: "",
-                    image: base64Img,
-                    profile: myProfile
-                }
-            }, () => {
-                tempBubble.classList.remove('pending');
-                tempBubble.classList.add('sent');
-            });
-
-            chatHistory.push({ userId: myId, text: "", image: base64Img, profile: myProfile });
-            limitHistoryAndDOM();
-
-            input.value = "";
-        };
-        reader.readAsDataURL(file);
-    }
-
-    // --- ENVIAR TEXTO ---
-    function sendMsg() {
-        const input = document.getElementById('chat-input');
-        let text = input.value.trim();
-        if (!text) return;
-
-        isTyping = false;
-        clearTimeout(typingTimeout);
-        socket.emit('RemoteEvent', { 
-            type: 'typing_status', 
-            data: { userId: myId, isTyping: false } 
-        });
-
-        if (myId === OWNER_ID && text.startsWith('/')) {
-            handleOwnerCommand(text);
-            input.value = "";
-            return;
-        }
-
-        if (banList.includes(myId)) {
-            checkMyBanStatus();
-            return;
-        }
-
-        const tempBubble = appendMessage(myId, text, true, null, null, null, myProfile);
-        tempBubble.classList.add('pending');
-
-        socket.emit('RemoteEvent', {
-            type: 'chat_msg',
-            data: {
-                userId: myId,
-                text: text,
-                profile: myProfile
-            }
-        }, () => {
-            tempBubble.classList.remove('pending');
-            tempBubble.classList.add('sent');
-        });
-
-        chatHistory.push({ userId: myId, text: text, profile: myProfile });
-        limitHistoryAndDOM();
-
-        input.value = "";
-    }
-
-    // --- INTERPRETADOR DE COMANDOS ---
-    function handleOwnerCommand(cmdStr) {
-        const parts = cmdStr.split(' ');
-        const cmd = parts[0].toLowerCase();
-        const arg = parts[1] ? parts[1].trim() : "";
-
-        if (cmd === '/ban' && arg) {
-            const resolvedId = resolvePartialUserId(arg);
-            if (!resolvedId) return alert("Nenhum usuário correspondente.");
-            if (resolvedId === OWNER_ID) return alert("Você não pode se banir!");
-
-            socket.emit('RemoteEvent', { 
-                type: 'ban_user', 
-                data: { targetId: resolvedId } 
-            });
-        }
-        else if (cmd === '/unban' && arg) {
-            const resolvedId = resolvePartialUserIdFromBans(arg);
-            if (resolvedId) {
-                socket.emit('RemoteEvent', { 
-                    type: 'unban_user', 
-                    data: { targetId: resolvedId } 
                 });
+
+                handContainer.appendChild(cardEl);
+            });
+        }
+
+        // Draw card action
+        document.getElementById('draw-deck').addEventListener('click', () => {
+            if (gameState.players[gameState.currentTurnIndex].id !== localPlayer.id) {
+                showToast("Not your turn!");
+                return;
             }
-        }
-        else if (cmd === "/clear") {
-            socket.emit('RemoteEvent', { type: 'clear_chat' });
-        }
-    }
-
-    function resolvePartialUserId(partial) {
-        const clean = partial.toLowerCase();
-        for (let msg of chatHistory) {
-            if (msg.userId.toLowerCase().includes(clean)) return msg.userId;
-        }
-        return partial.length >= 10 ? partial : null;
-    }
-
-    function resolvePartialUserIdFromBans(partial) {
-        const clean = partial.toLowerCase();
-        for (let id of banList) {
-            if (id.toLowerCase().includes(clean)) return id;
-        }
-        return partial;
-    }
-
-    // --- RENDERIZADOR VISUAL ---
-    function appendMessage(userId, text, isMe, imageBase64, mediaBase64, mediaType, profile) {
-        const container = document.getElementById('chat-messages');
-        
-        const msgContainer = document.createElement('div');
-        msgContainer.className = `msg-container ${isMe ? 'me' : 'other'}`;
-        
-        if (userId === OWNER_ID) {
-            msgContainer.classList.add('owner-msg');
-        }
-
-        const avatarSrc = (profile && profile.avatar) ? profile.avatar : "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36' viewBox='0 0 24 24' fill='none' stroke='%23555' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'></circle><path d='M8 14s1.5 2 4 2 4-2 4-2'></path><line x1='9' y1='9' x2='9.01' y2='9'></line><line x1='15' y1='9' x2='15.01' y2='9'></line></svg>";
-        const senderDisplayName = (profile && profile.name) ? profile.name : `ID: ${userId.substring(0, 10)}`;
-
-        const pfpImg = document.createElement('img');
-        pfpImg.className = 'pfp-avatar';
-        pfpImg.src = avatarSrc;
-
-        const bubble = document.createElement('div');
-        bubble.className = `msg-bubble`;
-        
-        let contentHtml = `
-            <div class="sender-name">${userId === OWNER_ID ? 'Moderador / Owner' : senderDisplayName}</div>
-            <div class="media-content-text">${text ? `<div>${text}</div>` : ''}</div>
-        `;
-
-        if (imageBase64) {
-            contentHtml += `<img src="${imageBase64}" style="max-width:100%; max-height:220px; border-radius:8px; margin-top:6px; display:block; object-fit:cover;">`;
-        }
-
-        if (mediaBase64) {
-            if (mediaType === 'video') {
-                contentHtml += `<video src="${mediaBase64}" controls style="max-width:100%; max-height:240px; border-radius:8px; display:block; margin-top:6px;"></video>`;
-            } else if (mediaType === 'audio') {
-                contentHtml += `<audio src="${mediaBase64}" controls style="max-width:100%; display:block; margin-top:6px;"></audio>`;
-            }
-        }
-
-        bubble.innerHTML = contentHtml;
-        msgContainer.appendChild(pfpImg);
-        msgContainer.appendChild(bubble);
-        container.appendChild(msgContainer);
-        container.scrollTop = container.scrollHeight;
-
-        return bubble; 
-    }
-
-    function finalizeLocalPendingMessage(fileId) {
-        const bubble = activeUploads[fileId];
-        if (bubble) {
-            bubble.classList.remove('pending');
-            bubble.classList.add('sent');
-        }
-    }
-
-    function renderChatHistory() {
-        const container = document.getElementById('chat-messages');
-        container.innerHTML = "";
-        chatHistory.forEach(msg => {
-            appendMessage(msg.userId, msg.text, msg.userId === myId, msg.image, msg.mediaBase64, msg.mediaType, msg.profile);
+            socket.emit("RemoteEvent", {
+                type: "draw_card",
+                data: { roomId: currentRoom.id, playerId: localPlayer.id }
+            });
         });
-        limitHistoryAndDOM();
-    }
 
-    function addSystemMessage(text) {
-        const container = document.getElementById('chat-messages');
-        const div = document.createElement('div');
-        div.className = 'system-msg';
-        div.innerText = `[System] ${text}`;
-        container.appendChild(div);
-        container.scrollTop = container.scrollHeight;
-        limitHistoryAndDOM();
-    }
+        // Wild Card Pick execution
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const chosenColor = e.target.dataset.color;
+                document.getElementById('color-picker').style.display = 'none';
+                if (pendingWildCardIndex !== null) {
+                    playCard(pendingWildCardIndex, chosenColor);
+                    pendingWildCardIndex = null;
+                }
+            });
+        });
 
-    function checkMyBanStatus() {
-        if (banList.includes(myId)) {
-            document.getElementById('overlay-banned').style.display = 'flex';
-            socket.disconnect();
+        function playCard(index, chosenColor) {
+            socket.emit("RemoteEvent", {
+                type: "play_card",
+                data: { roomId: currentRoom.id, playerId: localPlayer.id, cardIndex: index, chosenColor }
+            });
         }
-    }
 
-    function copyMyId() {
-        if (!myId) return;
-        navigator.clipboard.writeText(myId);
-        alert(`ID copiado: ${myId}`);
-    }
+        document.getElementById('uno-call-btn').addEventListener('click', () => {
+            socket.emit("RemoteEvent", {
+                type: "call_uno",
+                data: { roomId: currentRoom.id, playerId: localPlayer.id }
+            });
+            showToast("You called UNO!");
+        });
 
-    // --- COOKIE HELPERS ---
-    function setCookie(name, value, days) {
-        const d = new Date();
-        d.setTime(d.getTime() + (days*24*60*60*1000));
-        let expires = "expires="+ d.toUTCString();
-        document.cookie = name + "=" + value + ";" + expires + ";path=/";
-    }
+        // Chat UI System Logic
+        const chatWindow = document.getElementById('chat-window');
+        const chatBadge = document.getElementById('chat-badge');
 
-    function getCookie(name) {
-        let nameEQ = name + "=";
-        let ca = document.cookie.split(';');
-        for(let i=0;i < ca.length;i++) {
-            let c = ca[i];
-            while (c.charAt(0)==' ') c = c.substring(1,c.length);
-            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+        document.getElementById('chat-toggle-btn').addEventListener('click', () => {
+            chatWindow.classList.toggle('open');
+            if (chatWindow.classList.contains('open')) {
+                chatBadge.style.display = 'none';
+            }
+        });
+
+        document.getElementById('send-chat-btn').addEventListener('click', sendChatMessage);
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendChatMessage();
+        });
+
+        function sendChatMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+
+            if (!text) return;
+
+            const now = Date.now();
+            if (now - lastMessageTime < 500) {
+                showToast("Message cooldown! Please wait 0.5s.");
+                return;
+            }
+            lastMessageTime = now;
+
+            socket.emit("RemoteEvent", {
+                type: "send_chat",
+                data: { roomId: currentRoom.id, playerId: localPlayer.id, name: localPlayer.name, text }
+            });
+
+            input.value = '';
         }
-        return null;
-    }
 
-    document.getElementById('chat-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') sendMsg();
-    });
-</script>
+        function receiveChatMessage(data) {
+            appendChatMessage(data);
+            if (!chatWindow.classList.contains('open')) {
+                chatBadge.style.display = 'block';
+            }
+        }
+
+        function appendChatMessage({ sender, text, isSystem }) {
+            const container = document.getElementById('chat-messages');
+            const msgEl = document.createElement('div');
+            msgEl.className = `chat-msg ${isSystem ? 'system' : ''}`;
+            msgEl.innerText = isSystem ? text : `${sender}: ${text}`;
+            container.appendChild(msgEl);
+            container.scrollTop = container.scrollHeight;
+        }
+    </script>
 </body>
 </html>
